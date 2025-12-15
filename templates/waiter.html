@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Терминал Официанта</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        body { background-color: #0f172a; color: white; touch-action: manipulation; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.2s ease-out;
+        }
+        .modal-content {
+            animation: scaleIn 0.2s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        // Данные с сервера
+        const RESTAURANT_ID = {{ restaurant_id }};
+        const WAITER_NAME = "{{ waiter_name }}";
+
+        const { useState, useEffect, useMemo } = React;
+
+        function WaiterApp() {
+            const [view, setView] = useState('dashboard'); // dashboard | pos
+
+            return (
+                <div className="h-screen flex flex-col overflow-hidden">
+                    <header className="bg-slate-800 p-3 shadow-lg flex justify-between items-center shrink-0 z-50">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center font-bold text-slate-900 shadow-md">
+                                {WAITER_NAME[0].toUpperCase()}
+                            </div>
+                            <div className="hidden sm:block">
+                                <h1 className="font-bold text-lg leading-tight">{WAITER_NAME}</h1>
+                                <p className="text-xs text-slate-400">Официант</p>
+                            </div>
+                        </div>
+                        <div className="flex bg-slate-700 rounded-lg p-1">
+                            <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded-md text-sm font-bold transition ${view === 'dashboard' ? 'bg-amber-500 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
+                                <i className="fa-solid fa-list-check sm:mr-2"></i><span className="hidden sm:inline">Заказы</span>
+                            </button>
+                            <button onClick={() => setView('pos')} className={`px-4 py-2 rounded-md text-sm font-bold transition ${view === 'pos' ? 'bg-amber-500 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
+                                <i className="fa-solid fa-plus sm:mr-2"></i><span className="hidden sm:inline">Новый</span>
+                            </button>
+                        </div>
+                        <a href="/logout" className="text-slate-500 hover:text-red-400 p-2 transition"><i className="fa-solid fa-power-off text-xl"></i></a>
+                    </header>
+
+                    <main className="flex-grow p-2 sm:p-4 overflow-hidden flex flex-col">
+                        {view === 'dashboard' ? <DashboardView /> : <POSView onOrderCreated={() => setView('dashboard')} />}
+                    </main>
+                </div>
+            );
+        }
+
+        function DashboardView() {
+            const [orders, setOrders] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            const fetchOrders = async () => {
+                try {
+                    const res = await fetch('/api/waiter/tables');
+                    const data = await res.json();
+                    setOrders(data.orders);
+                    setLoading(false);
+                } catch (e) { console.error(e); }
+            };
+
+            const [signals, setSignals] = useState([]);
+            const audio = useMemo(() => new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'), []);
+
+            const fetchOrders = async () => {
+                try {
+                    const res = await fetch('/api/waiter/tables');
+                    const data = await res.json();
+                    setOrders(data.orders);
+                    setSignals(data.signals || []);
+
+                    if (data.signals && data.signals.length > 0) {
+                        // Простой хак для автовоспроизведения (требует взаимодействия со страницей хотя бы раз)
+                        audio.play().catch(e => console.log("Audio blocked"));
+                    }
+                    setLoading(false);
+                } catch (e) { console.error(e); }
+            };
+
+            const resolveSignal = async (id) => {
+                await fetch('/api/signal/resolve', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ signal_id: id })
+                });
+                fetchOrders();
+            };
+
+            if (loading) return <div className="text-center py-10 text-slate-500"><i className="fa-solid fa-circle-notch fa-spin text-2xl mb-2"></i><br/>Загрузка...</div>;
+
+            return (
+                <div className="overflow-y-auto h-full pb-20">
+                    {/* Вызовы */}
+                    {signals.length > 0 && (
+                        <div className="mb-6 grid grid-cols-2 gap-4 animate-pulse">
+                            {signals.map(s => (
+                                <div key={s.id} onClick={() => resolveSignal(s.id)} className="bg-red-500 text-white p-4 rounded-xl shadow-lg flex items-center justify-between cursor-pointer hover:bg-red-600 transition">
+                                    <div className="flex items-center gap-3">
+                                        <i className="fa-solid fa-bell fa-shake text-2xl"></i>
+                                        <div>
+                                            <h3 className="font-bold text-lg">Стол {s.table}</h3>
+                                            <p className="text-xs text-red-100">Зовет официанта</p>
+                                        </div>
+                                    </div>
+                                    <i className="fa-solid fa-check border-2 border-white rounded-full p-1"></i>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {orders.length === 0 && <div className="col-span-3 text-center py-20 text-slate-600">Активных заказов нет</div>}
+                        {orders.map(order => (
+                            <div key={order.id} className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition">
+                                    <i className="fa-solid fa-utensils text-6xl"></i>
+                                </div>
+                                <div className="flex justify-between items-start mb-4 relative z-10">
+                                    <div className="bg-slate-700 text-amber-500 font-bold w-12 h-12 rounded-lg flex items-center justify-center text-xl border border-slate-600 shadow-inner">
+                                        {order.table}
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`inline-block px-2 py-1 rounded text-xs font-bold shadow-sm ${order.status === 'Ожидает подтверждения' ? 'bg-amber-500 text-white animate-pulse' : 'bg-green-600 text-white'}`}>
+                                           {order.status}
+                                        </span>
+                                        <p className="text-xs text-slate-400 mt-1"><i className="fa-regular fa-clock mr-1"></i>{order.minutes} мин.</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-1 mb-4 relative z-10 max-h-32 overflow-y-auto scrollbar-hide">
+                                    {order.items.map((item, i) => (
+                                        <div key={i} className="text-sm text-slate-300 border-b border-slate-700/50 last:border-0 py-1 flex justify-between">
+                                            <span>{item.split(' x')[0]}</span>
+                                            <span className="font-bold text-slate-500">x{item.split(' x')[1]}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="border-t border-slate-700 pt-3 relative z-10">
+    <div className="flex justify-between items-center mb-3">
+        <span className="text-slate-400 text-sm">Итого:</span>
+        <span className="text-xl font-bold text-white">{order.total} ₸</span>
+    </div>
+
+    {order.status === 'Ожидает подтверждения' && (
+        <button
+            onClick={async () => {
+                if(!confirm(`Подтвердить заказ стола ${order.table} на кухню?`)) return;
+                await fetch(`/api/orders/${order.id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'Готовится' })
+                });
+                fetchOrders();
+            }}
+            className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg transition shadow-lg flex items-center justify-center gap-2"
+        >
+            <i className="fa-solid fa-fire-burner"></i> На кухню
+        </button>
+    )}
+</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function ConfirmationModal({ table, cart, total, waiter, onCancel, onConfirm, isSending }) {
+            const items = Object.values(cart);
+
+            return (
+                <div className="modal-overlay" onClick={onCancel}>
+                    <div className="modal-content bg-white text-slate-900 w-full max-w-md rounded-2xl p-6 m-4 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                        <div className="text-center border-b border-slate-100 pb-4 mb-4">
+                            <h3 className="text-2xl font-bold">Подтверждение</h3>
+                            <p className="text-slate-400 text-sm">Проверьте данные перед отправкой</p>
+                        </div>
+
+                        <div className="space-y-4 mb-6">
+                            <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg">
+                                <span className="text-slate-500 font-medium">Официант:</span>
+                                <span className="font-bold text-slate-800">{waiter}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg">
+                                <span className="text-slate-500 font-medium">Столик:</span>
+                                <span className="font-bold text-2xl text-amber-600">№ {table}</span>
+                            </div>
+
+                            <div className="bg-slate-50 p-3 rounded-lg max-h-48 overflow-y-auto">
+                                <span className="text-xs font-bold text-slate-400 uppercase block mb-2">Состав заказа</span>
+                                {items.map(item => (
+                                    <div key={item.id} className="flex justify-between text-sm py-1 border-b border-slate-200 last:border-0">
+                                        <span className="flex-1">{item.name}</span>
+                                        <span className="font-bold whitespace-nowrap ml-2">{item.quantity} x {item.price} ₸</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-between items-center pt-2">
+                                <span className="text-lg font-bold">Итого:</span>
+                                <span className="text-3xl font-bold text-green-600">{total} ₸</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={onCancel} disabled={isSending} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition">
+                                Назад
+                            </button>
+                            <button onClick={onConfirm} disabled={isSending} className="flex-1 py-3 rounded-xl font-bold text-white bg-green-500 hover:bg-green-600 shadow-lg shadow-green-500/30 transition flex justify-center items-center">
+                                {isSending ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <span><i className="fa-solid fa-check mr-2"></i>Подтвердить</span>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function POSView({ onOrderCreated }) {
+            const [menu, setMenu] = useState([]);
+            const [cart, setCart] = useState({});
+            const [table, setTable] = useState("1"); // По умолчанию строковое значение для Select
+            const [categories, setCategories] = useState([]);
+            const [activeCat, setActiveCat] = useState('Все');
+            const [mobileTab, setMobileTab] = useState('menu');
+            const [showConfirm, setShowConfirm] = useState(false);
+            const [isSending, setIsSending] = useState(false);
+
+            // Генерируем список столиков (например, 20 штук)
+            const tableList = Array.from({length: 20}, (_, i) => i + 1);
+
+            useEffect(() => {
+                fetch(`/api/r/${RESTAURANT_ID}/menu`)
+                    .then(res => res.json())
+                    .then(data => {
+                        setMenu(data);
+                        const cats = ['Все', ...new Set(data.map(i => i.category))];
+                        setCategories(cats);
+                    });
+            }, []);
+
+            const addToCart = (item) => {
+                setCart(prev => ({ ...prev, [item.id]: { ...item, quantity: (prev[item.id]?.quantity || 0) + 1 } }));
+            };
+
+            const removeFromCart = (id) => {
+                setCart(prev => {
+                    const copy = { ...prev };
+                    if (copy[id].quantity > 1) copy[id].quantity--;
+                    else delete copy[id];
+                    return copy;
+                });
+            };
+
+            const total = Object.values(cart).reduce((sum, i) => sum + i.price * i.quantity, 0);
+            const cartCount = Object.values(cart).reduce((sum, i) => sum + i.quantity, 0);
+
+            const handleCheckoutClick = () => {
+                if (total === 0) return;
+                setShowConfirm(true);
+            }
+
+            const confirmAndSend = async () => {
+                setIsSending(true);
+                const items = Object.values(cart).map(i => ({ menu_item_id: i.id, quantity: i.quantity }));
+
+                try {
+                    const res = await fetch('/orders/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            restaurant_id: RESTAURANT_ID,
+                            table_number: parseInt(table),
+                            items: items
+                        })
+                    });
+
+                    if (res.ok) {
+                        setShowConfirm(false);
+                        onOrderCreated();
+                    } else {
+                        alert("Ошибка создания заказа");
+                        setIsSending(false);
+                    }
+                } catch (e) {
+                    alert("Ошибка сети");
+                    setIsSending(false);
+                }
+            };
+
+            const filteredMenu = activeCat === 'Все' ? menu : menu.filter(i => i.category === activeCat);
+
+            return (
+                <div className="flex flex-col h-full relative">
+                    {/* Переключатель вкладок (Мобильный) */}
+                    <div className="md:hidden flex mb-2 bg-slate-700 p-1 rounded-lg shrink-0">
+                        <button onClick={() => setMobileTab('menu')} className={`flex-1 py-2 text-sm font-bold rounded-md transition duration-200 ${mobileTab === 'menu' ? 'bg-amber-500 text-white shadow' : 'text-slate-400'}`}>
+                            Меню
+                        </button>
+                        <button onClick={() => setMobileTab('cart')} className={`flex-1 py-2 text-sm font-bold rounded-md transition duration-200 ${mobileTab === 'cart' ? 'bg-amber-500 text-white shadow' : 'text-slate-400'}`}>
+                            Корзина {cartCount > 0 && <span className="ml-2 bg-white text-amber-600 px-1.5 py-0.5 rounded-full text-xs">{cartCount}</span>}
+                        </button>
+                    </div>
+
+                    <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
+                        {/* Меню */}
+                        <div className={`flex-1 flex flex-col min-h-0 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-lg ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
+                            <div className="p-2 sm:p-3 bg-slate-900 overflow-x-auto whitespace-nowrap scrollbar-hide border-b border-slate-700 shrink-0">
+                                {categories.map(cat => (
+                                    <button key={cat} onClick={() => setActiveCat(cat)}
+                                        className={`px-4 py-2 rounded-full text-sm font-bold mr-2 transition active:scale-95 ${activeCat === cat ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-slate-700 text-slate-300 border border-slate-600'}`}>
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-2 sm:p-4 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 content-start">
+                                {filteredMenu.map(item => {
+                                    const qty = cart[item.id]?.quantity || 0;
+                                    return (
+                                        <div key={item.id} className="bg-slate-700 rounded-lg p-2 sm:p-3 flex flex-col border border-slate-600/50 hover:border-slate-500 transition shadow-sm">
+                                            {item.image_url && <img src={item.image_url} className="w-full h-24 object-cover rounded-md mb-2 bg-slate-800" loading="lazy" />}
+                                            <div className="flex-1 mb-2">
+                                                <h4 className="font-bold text-sm text-white mb-1 leading-snug line-clamp-2">{item.name}</h4>
+                                                <p className="text-amber-400 font-bold text-sm">{item.price} ₸</p>
+                                            </div>
+
+                                            {/* Интерактивная кнопка добавления */}
+                                            {qty === 0 ? (
+                                                <button onClick={() => addToCart(item)} className="mt-auto w-full bg-slate-800 py-2 rounded text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-600 transition active:scale-95">
+                                                    <i className="fa-solid fa-plus mr-1"></i>Добавить
+                                                </button>
+                                            ) : (
+                                                <div className="mt-auto flex items-center justify-between bg-slate-800 rounded p-0.5">
+                                                    <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 flex items-center justify-center bg-slate-600 hover:bg-slate-500 text-white rounded font-bold transition active:scale-90"><i className="fa-solid fa-minus"></i></button>
+                                                    <span className="font-bold text-white text-sm">{qty}</span>
+                                                    <button onClick={() => addToCart(item)} className="w-8 h-8 flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-white rounded font-bold transition active:scale-90"><i className="fa-solid fa-plus"></i></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Корзина */}
+                        <div className={`w-full md:w-80 lg:w-96 bg-white text-slate-900 rounded-xl flex flex-col overflow-hidden shadow-2xl ${mobileTab === 'menu' ? 'hidden md:flex' : 'flex'}`}>
+                            <div className="p-4 bg-slate-50 border-b border-slate-200 shrink-0">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Столик</label>
+                                {/* Выбор столика через Dropdown */}
+                                <div className="relative">
+                                    <select value={table} onChange={e => setTable(e.target.value)}
+                                        className="w-full text-lg font-bold bg-white border border-slate-300 rounded-lg p-3 pr-8 appearance-none focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
+                                        {tableList.map(num => (
+                                            <option key={num} value={num}>Стол № {num}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-3 top-4 pointer-events-none text-slate-500">
+                                        <i className="fa-solid fa-chevron-down"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
+                                {Object.values(cart).length === 0 && (
+                                    <div className="flex flex-col items-center justify-center h-full text-slate-400 opacity-50">
+                                        <i className="fa-solid fa-basket-shopping text-6xl mb-4"></i>
+                                        <p>Корзина пуста</p>
+                                    </div>
+                                )}
+                                {Object.values(cart).map(item => (
+                                    <div key={item.id} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                        <div className="leading-tight flex-1 pr-2">
+                                            <div className="font-bold text-sm text-slate-800">{item.name}</div>
+                                            <div className="text-xs text-slate-500 font-medium">{item.price} ₸</div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-white border border-slate-200 rounded-full text-red-500 font-bold flex items-center justify-center hover:bg-red-50 active:scale-90 transition shadow-sm"><i className="fa-solid fa-minus"></i></button>
+                                            <span className="font-bold text-lg w-5 text-center text-slate-800">{item.quantity}</span>
+                                            <button onClick={() => addToCart(item)} className="w-8 h-8 bg-white border border-slate-200 rounded-full text-green-500 font-bold flex items-center justify-center hover:bg-green-50 active:scale-90 transition shadow-sm"><i className="fa-solid fa-plus"></i></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="p-4 bg-slate-50 border-t border-slate-200 shrink-0 pb-safe">
+                                <div className="flex justify-between items-center mb-4">
+                                    <span className="text-slate-500 font-medium">К оплате:</span>
+                                    <span className="text-3xl font-bold text-slate-900">{total} ₸</span>
+                                </div>
+                                <button onClick={handleCheckoutClick} disabled={total === 0}
+                                        className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition transform active:scale-[0.98]">
+                                    <i className="fa-solid fa-paper-plane mr-2"></i>Оформить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {showConfirm && (
+                        <ConfirmationModal
+                            table={table}
+                            cart={cart}
+                            total={total}
+                            waiter={WAITER_NAME}
+                            onCancel={() => setShowConfirm(false)}
+                            onConfirm={confirmAndSend}
+                            isSending={isSending}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<WaiterApp />);
+    </script>
+</body>
+</html>

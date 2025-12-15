@@ -1,0 +1,10 @@
+[2025-12-15 19:27:09,995] WARNING in _internal:  * Debugger is active!
+[2025-12-15 19:31:11,858] WARNING in _internal:  * Debugger is active!
+[2025-12-15 19:31:50,418] WARNING in _internal:  * Debugger is active!
+[2025-12-15 19:38:20,022] WARNING in _internal:  * Debugger is active!
+[2025-12-15 19:53:32,590] WARNING in _internal:  * Debugger is active!
+[2025-12-15 20:19:00,341] WARNING in _internal:  * Debugger is active!
+[2025-12-15 20:24:07,481] WARNING in _internal:  * Debugger is active!
+[2025-12-15 20:27:04,793] WARNING in _internal:  * Debugger is active!
+[2025-12-15 20:35:36,973] WARNING in _internal:  * Debugger is active!
+[2025-12-15 23:33:18,013] WARNING in __init__: WebSocket transport not available. Install gevent-websocket for improved performance.

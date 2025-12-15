@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>God Mode | FoodStream SaaS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="font-sans min-h-screen p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-10">
+            <div>
+                <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-orange-600">
+                    FoodStream <span class="text-slate-500 text-lg font-normal">Super Admin</span>
+                </h1>
+                <p class="text-slate-400">Панель управления мульти-тенансностью</p>
+            </div>
+            <a href="/logout" class="px-5 py-2 rounded-full border border-slate-600 hover:bg-slate-800 transition">
+                Выход <i class="fa-solid fa-arrow-right-from-bracket ml-2"></i>
+            </a>
+        </header>
+
+        {% if msg %}
+        <div class="mb-8 p-4 rounded-xl bg-green-500/20 border border-green-500/50 text-green-400 font-bold flex items-center">
+            <i class="fa-solid fa-check-circle mr-3 text-xl"></i> {{ msg }}
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- ФОРМА СОЗДАНИЯ -->
+            <div class="lg:col-span-1">
+                <div class="glass rounded-2xl p-6 sticky top-8">
+                    <h2 class="text-2xl font-bold mb-6 text-white"><i class="fa-solid fa-plus-circle mr-2 text-amber-500"></i>Новый Ресторан</h2>
+                    <form method="POST" class="space-y-4">
+                        <input type="hidden" name="action" value="create">
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Название заведения</label>
+                            <input name="name" placeholder="Напр. Burger King" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition" required>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Slug (URL)</label>
+                                <input name="slug" placeholder="burger-king" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Столов</label>
+                                <input name="table_count" type="number" placeholder="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition" required>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t border-slate-700">
+                            <p class="text-xs text-amber-500 mb-3 font-bold uppercase">Администратор заведения</p>
+                            <div class="space-y-3">
+                                <input name="admin_username" placeholder="Логин (напр. admin_bk)" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition" required>
+                                <input name="admin_password" placeholder="Пароль" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition" required>
+                            </div>
+                        </div>
+
+                        <button class="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold py-4 rounded-xl hover:from-amber-600 hover:to-orange-700 transform hover:scale-[1.02] transition shadow-lg shadow-orange-500/20 mt-4">
+                            Запустить Ресторан
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- СПИСОК РЕСТОРАНОВ -->
+            <div class="lg:col-span-2 space-y-6">
+                <h2 class="text-2xl font-bold text-white mb-4">Активные Клиенты</h2>
+
+                {% if not restaurants %}
+                    <div class="text-center py-20 bg-slate-800/50 rounded-2xl border border-slate-700 border-dashed">
+                        <i class="fa-solid fa-store-slash text-6xl text-slate-600 mb-4"></i>
+                        <p class="text-slate-500">Система чиста. Создайте первый ресторан.</p>
+                    </div>
+                {% endif %}
+
+                {% for rest in restaurants %}
+                <div class="glass p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-amber-500/30 transition">
+                    <div class="flex items-center gap-4 flex-1">
+                        <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center border border-slate-600 text-2xl font-bold text-amber-500 shadow-inner">
+                            {{ rest.name[0] | upper }}
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">{{ rest.name }}</h3>
+                            <p class="text-sm text-slate-400">ID: {{ rest.id }} | Slug: <span class="text-slate-300 font-mono">{{ rest.slug }}</span></p>
+                            <div class="flex gap-4 mt-2 text-xs text-slate-500">
+                                <span><i class="fa-solid fa-chair mr-1"></i>{{ rest.table_count }} столов</span>
+                                <span class="text-green-500"><i class="fa-solid fa-circle mr-1 text-[8px]"></i>Активен</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w-full md:w-auto flex flex-col gap-2">
+                        <!-- Secret Link -->
+                        <div class="bg-slate-900 rounded-lg p-2 flex items-center gap-2 border border-slate-700">
+                            <code class="text-xs text-amber-500 font-mono truncate max-w-[150px]">/admin/{{ rest.admin_secret_link }}</code>
+                            <button onclick="navigator.clipboard.writeText('{{ request.host_url }}admin/{{ rest.admin_secret_link }}'); alert('Ссылка скопирована!');" class="text-slate-400 hover:text-white transition">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <a href="/r/{{ rest.id }}" target="_blank" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-3 rounded-lg text-center transition">
+                                Меню
+                            </a>
+                            <form method="POST" onsubmit="return confirm('Удалить ресторан? Это необратимо!');" class="inline">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="restaurant_id" value="{{ rest.id }}">
+                                <button class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white text-xs font-bold py-2 px-3 rounded-lg transition border border-red-500/20">
+                                    Удалить
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

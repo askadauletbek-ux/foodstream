@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>История чата | foodstream.kz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        .font-sans { font-family: 'Inter', sans-serif; }
+        html, body, #root { height: 100%; }
+        body { display: flex; flex-direction: column; }
+        #root { display: flex; flex-direction: column; flex-grow: 1; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans">
+    <div id="root"></div>
+    <script type="text/babel">
+        const ORDER_ID = {{ order_id }};
+    {% raw %}
+        const { useState, useEffect, useRef } = React;
+
+        function ChatView() {
+            const [chatData, setChatData] = useState(null);
+            const [isLoading, setIsLoading] = useState(true);
+            const [newMessage, setNewMessage] = useState('');
+            const chatEndRef = useRef(null);
+
+            const fetchChatData = async () => {
+                try {
+                    const res = await fetch(`/api/orders/${ORDER_ID}/chat`);
+                    if (!res.ok) throw new Error('Network response was not ok');
+                    const data = await res.json();
+                    setChatData(data);
+                } catch (error) {
+                    console.error("Failed to load chat history:", error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                fetchChatData();
+                const interval = setInterval(fetchChatData, 3000); // Обновляем чат каждые 3 секунды
+                return () => clearInterval(interval);
+            }, []);
+
+            useEffect(() => {
+                // Плавная прокрутка вниз при получении новых сообщений
+                chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, [chatData]);
+
+            const handleSendMessage = async () => {
+                if (!newMessage.trim()) return;
+                const tempMessage = newMessage;
+                setNewMessage('');
+
+                await fetch(`/api/orders/${ORDER_ID}/send_message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: tempMessage }),
+                });
+                await fetchChatData(); // Обновляем чат после отправки
+            };
+
+            const handleToggleBot = async () => {
+                if (!chatData) return;
+                const newStatus = !chatData.is_bot_active;
+                await fetch(`/api/orders/${ORDER_ID}/toggle_bot`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_bot_active: newStatus }),
+                });
+                await fetchChatData(); // Обновляем для отображения нового статуса
+            };
+
+            const formatTimestamp = (isoString) => {
+                const date = new Date(isoString);
+                return date.toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            };
+
+            if (isLoading) {
+                return <div className="text-center p-10">Загрузка истории чата...</div>;
+            }
+
+            if (!chatData || !chatData.messages) {
+                return <div className="text-center p-10">Не удалось загрузить историю чата.</div>;
+            }
+
+            const MessageBubble = ({ msg }) => {
+                const isAdmin = msg.sender === 'admin';
+                const isUser = msg.sender === 'user';
+                const isBot = msg.sender === 'bot';
+
+                return (
+                    <div className={`flex items-end gap-3 ${isUser ? 'justify-start' : 'justify-end'}`}>
+                        {isUser && <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500 shrink-0">К</div>}
+
+                        <div className={`max-w-md p-3 rounded-2xl ${isUser ? 'bg-slate-100 text-slate-700' : isAdmin ? 'bg-blue-500 text-white' : 'bg-amber-500 text-white'}`}>
+                            {msg.type === 'photo' ? (
+                                <a href={msg.content} target="_blank" rel="noopener noreferrer">
+                                    <img src={msg.content} alt="Изображение из чата" className="rounded-lg max-w-xs cursor-pointer"/>
+                                </a>
+                            ) : (
+                                <p className="whitespace-pre-wrap">{msg.content}</p>
+                            )}
+                            <p className={`text-xs mt-1 ${isUser ? 'text-slate-400' : 'text-white/70'} text-right`}>
+                                {formatTimestamp(msg.timestamp)}
+                            </p>
+                        </div>
+
+                        {(isBot || isAdmin) && <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 ${isAdmin ? 'bg-blue-200 text-blue-600' : 'bg-amber-200 text-amber-600'}`}>{isAdmin ? 'A' : 'Б'}</div>}
+                    </div>
+                );
+            };
+
+            return (
+                <div className="container mx-auto max-w-2xl p-4 flex flex-col h-full">
+                    <header className="mb-4 text-center">
+                        <h1 className="text-2xl font-bold">Чат по заказу #{chatData.order_id}</h1>
+                        <p className="text-slate-500">Клиент: {chatData.customer_username}</p>
+                        <button onClick={handleToggleBot} className={`mt-2 px-4 py-1 text-sm font-semibold rounded-full shadow-sm transition-all ${chatData.is_bot_active ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}>
+                            <i className={`fa-solid ${chatData.is_bot_active ? 'fa-robot' : 'fa-user-tie'} mr-2`}></i>
+                            {chatData.is_bot_active ? 'Бот Активен' : 'Оператор на линии'}
+                        </button>
+                    </header>
+                    <main className="flex-grow bg-white rounded-2xl shadow-lg p-6 space-y-4 overflow-y-auto mb-4">
+                        {chatData.messages.map((msg, index) => <MessageBubble key={index} msg={msg} />)}
+                        {chatData.messages.length === 0 && (
+                            <div className="text-center py-10 text-slate-400">
+                                <i className="fa-solid fa-comments text-4xl mb-3"></i>
+                                <p>История сообщений для этого заказа пуста.</p>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </main>
+                    <footer className="mt-auto">
+                        <div className="flex gap-2">
+                            <input type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)}
+                                   onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+                                   placeholder="Сообщение для клиента..."
+                                   className="w-full p-3 border-2 border-slate-200 bg-white rounded-lg focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"/>
+                            <button onClick={handleSendMessage} className="bg-amber-500 text-white font-bold px-6 rounded-lg hover:bg-amber-600 disabled:bg-slate-300 disabled:cursor-not-allowed transition" disabled={!newMessage.trim()}>
+                                <i className="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ChatView />);
+    {% endraw %}
+    </script>
+</body>
+</html>
+

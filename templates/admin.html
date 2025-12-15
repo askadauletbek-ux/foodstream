@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель | {{ restaurant_name }}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        .font-sans { font-family: 'Inter', sans-serif; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 2rem; border-radius: 1rem; width: 90%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto; }
+        /* Анимация уведомления */
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+    <div id="root"></div>
+    <script type="text/babel">
+       // Внедряем переменные Jinja до блока raw
+        const RESTAURANT_NAME = "{{ restaurant_name }}";
+        const SECRET_LINK = "{{ secret_link }}";
+        const RESTAURANT_ID = {{ restaurant_id }};
+
+    {% raw %}
+        const { useState, useEffect, useCallback, useRef, useMemo } = React;
+        const API_BASE_URL = '/api';
+
+const ORDER_STATUSES = [ "Сбор корзины", "Отменен", "Ожидает подтверждения", "На проверке", "Ошибка оплаты", "Готовится", "Доставляется", "Успешно доставлен"];
+        function AdminPanel() {
+            const [activeTab, setActiveTab] = useState('orders');
+
+            const renderContent = () => {
+                switch (activeTab) {
+                    case 'orders': return <OrderManager />;
+                    case 'menu': return <MenuManager />;
+                    case 'categories': return <CategoryManager />;
+                    case 'slider': return <SliderManager />;
+                    case 'staff': return <StaffManager />;
+                    case 'settings': return <SettingsManager />;
+                    default: return <OrderManager />;
+                }
+            };
+
+            return (
+                <div className="flex h-screen overflow-hidden">
+                    <nav className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-10">
+                        <div className="p-6 border-b border-slate-700">
+                            <h1 className="text-xl font-bold text-white mb-1">{RESTAURANT_NAME}</h1>
+                            <p className="text-xs text-slate-500">Панель управления</p>
+                        </div>
+
+                        <ul className="flex-1 overflow-y-auto py-4 space-y-1 px-3">
+                            <NavItem icon="fa-receipt" label="Заказы" name="orders" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <NavItem icon="fa-utensils" label="Меню" name="menu" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <NavItem icon="fa-tags" label="Категории" name="categories" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <NavItem icon="fa-images" label="Баннеры" name="slider" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <NavItem icon="fa-users" label="Персонал" name="staff" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <NavItem icon="fa-cogs" label="Настройки" name="settings" activeTab={activeTab} setActiveTab={setActiveTab} />
+                        </ul>
+
+                        <div className="p-4 border-t border-slate-700 bg-slate-800/50">
+                            <div className="text-xs text-slate-500 mb-2 text-center break-all">
+                                🔒 Секретная ссылка:<br/>
+                                <span className="text-amber-500 select-all">/admin/{SECRET_LINK}</span>
+                            </div>
+                             <a href="/logout" className="block text-center text-slate-400 hover:text-white transition text-sm">
+                               <i className="fa-solid fa-sign-out-alt mr-2"></i>Выход
+                            </a>
+                        </div>
+                    </nav>
+                    <main className="flex-1 bg-slate-100 overflow-y-auto p-8 relative">
+                        {renderContent()}
+                    </main>
+                </div>
+            );
+        }
+
+        const NavItem = ({ icon, label, name, activeTab, setActiveTab }) => (
+            <li>
+                <button onClick={() => setActiveTab(name)}
+                    className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left font-medium transition-all duration-200 ${activeTab === name ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'hover:bg-slate-800 hover:text-white'}`}>
+                    <i className={`fa-solid ${icon} w-6 text-center`}></i>
+                    <span>{label}</span>
+                </button>
+            </li>
+        );
+
+        function OrderManager() {
+            const [orders, setOrders] = useState([]);
+            const [chatOrder, setChatOrder] = useState(null);
+            const [notification, setNotification] = useState(null);
+            const [audioEnabled, setAudioEnabled] = useState(false); // Состояние "Звук разрешен"
+
+            const isFirstLoad = useRef(true);
+            const prevOrdersRef = useRef({});
+
+            // Функция воспроизведения. Создает объект Audio в момент вызова.
+            const playSound = (type) => {
+                if (!audioEnabled) return;
+
+                const src = type === 'new'
+                    ? 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'
+                    : 'https://assets.mixkit.co/active_storage/sfx/2866/2866-preview.mp3';
+
+                const audio = new Audio(src);
+                audio.volume = 1.0;
+                audio.play().catch(e => console.warn("Audio play failed:", e));
+            };
+
+            // "Хаба" для разблокировки аудио. Вешается на кнопку.
+            const enableAudioContext = () => {
+                // Пытаемся воспроизвести тишину или короткий звук, чтобы браузер снял блок
+                const silent = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                silent.volume = 0;
+                silent.play().then(() => {
+                    setAudioEnabled(true); // Успех! Теперь звуки будут работать
+                }).catch(e => {
+                    console.error("Still blocked", e);
+                    alert("Пожалуйста, измените настройки сайта, чтобы разрешить звук.");
+                });
+            };
+
+            // ... (generateOrderHash тот же) ...
+            const generateOrderHash = (o) => `${o.id}|${o.status}|${o.total_price}|${o.items.length}|${JSON.stringify(o.items.map(i => i.quantity))}`;
+
+            // ... (useEffect для уведомлений тот же) ...
+            useEffect(() => {
+                if (notification) {
+                    const timer = setTimeout(() => setNotification(null), 7000);
+                    return () => clearTimeout(timer);
+                }
+            }, [notification]);
+
+            const fetchOrders = async () => {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/orders/`);
+                    if (!res.ok) return;
+                    const newOrders = await res.json();
+
+                    if (!isFirstLoad.current) {
+                        const newHashes = {};
+                        let newOrderAlert = null;
+                        let updateOrderAlert = null;
+
+                        newOrders.forEach(o => {
+                            const hash = generateOrderHash(o);
+                            newHashes[o.id] = hash;
+
+                            // Игнорируем звуки и уведомления, пока заказ собирается
+                            if (o.status === 'Сбор корзины') return;
+
+                            if (!prevOrdersRef.current[o.id]) {
+                                newOrderAlert = o;
+                            }
+                            else if (prevOrdersRef.current[o.id] !== hash) {
+                                updateOrderAlert = o;
+                            }
+                        });
+
+                        if (newOrderAlert) {
+                            playSound('new'); // Вызов функции
+                            setNotification({ type: 'new', title: '🔔 Новый заказ!', msg: `Стол ${newOrderAlert.table_number}` });
+                        } else if (updateOrderAlert) {
+                            playSound('update'); // Вызов функции
+                            setNotification({ type: 'update', title: '📝 Заказ изменен!', msg: `Стол ${updateOrderAlert.table_number}` });
+                        }
+                        prevOrdersRef.current = newHashes;
+                    } else {
+                        const hashes = {};
+                        newOrders.forEach(o => hashes[o.id] = generateOrderHash(o));
+                        prevOrdersRef.current = hashes;
+                        isFirstLoad.current = false;
+                    }
+                    setOrders(newOrders);
+                } catch (e) { console.error(e); }
+            };
+
+            useEffect(() => {
+                fetchOrders();
+                const socket = io();
+
+                // Подписываемся на комнату ресторана (нужно передать ID ресторана в шаблон)
+                socket.emit('join', { room: `rest_${RESTAURANT_ID}` });
+
+                socket.on('new_order', (data) => {
+                    playSound('new');
+                    fetchOrders(); // Загружаем список заново при новом заказе
+                });
+
+                socket.on('status_change', () => {
+                    fetchOrders();
+                });
+
+                return () => socket.disconnect();
+            }, [audioEnabled]);
+            // ... (handleStatusChange, getStatusColor те же) ...
+            const handleStatusChange = async (orderId, newStatus) => {
+                setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+                const order = orders.find(o => o.id === orderId);
+                if (order) {
+                    const updatedOrder = { ...order, status: newStatus };
+                    prevOrdersRef.current[orderId] = generateOrderHash(updatedOrder);
+                }
+                await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus })
+                });
+            };
+            const getStatusColor = (status) => {
+                if (['Отменен', 'Ошибка оплаты'].includes(status)) return 'bg-red-100 text-red-800 border-red-200';
+                if (status === 'Успешно доставлен') return 'bg-green-100 text-green-800 border-green-200';
+if (status === 'Ожидает подтверждения') return 'bg-amber-100 text-amber-800 border-amber-200 animate-pulse';
+return 'bg-blue-50 text-blue-800 border-blue-200';
+            };
+
+            return (
+                <div className="relative">
+                    {/* Кнопка включения звука - ОБЯЗАТЕЛЬНА */}
+                    {!audioEnabled && (
+                        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded shadow flex justify-between items-center">
+                            <div>
+                                <p className="font-bold">🔴 Звук выключен</p>
+                                <p className="text-sm">Нажмите кнопку, чтобы слышать новые заказы.</p>
+                            </div>
+                            <button onClick={enableAudioContext} className="bg-red-600 text-white font-bold py-2 px-4 rounded hover:bg-red-700 transition animate-pulse">
+                                ВКЛЮЧИТЬ ЗВУК
+                            </button>
+                        </div>
+                    )}
+
+                    {notification && (
+                        <div className={`fixed top-5 right-5 z-[9999] max-w-sm w-full bg-white rounded-xl shadow-2xl border-l-8 overflow-hidden cursor-pointer ${notification.type === 'new' ? 'border-green-500' : 'border-blue-500'}`} onClick={() => setNotification(null)}>
+                            <div className="p-4 flex items-start">
+                                <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white mr-3 ${notification.type === 'new' ? 'bg-green-500' : 'bg-blue-500'}`}>
+                                    <i className={`fa-solid ${notification.type === 'new' ? 'fa-bell' : 'fa-pen'} text-lg`}></i>
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-gray-900 text-lg leading-tight mb-1">{notification.title}</h4>
+                                    <p className="text-gray-600 text-sm">{notification.msg}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ... (Остальной JSX с таблицей заказов) ... */}
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold text-slate-800">Активные заказы</h2>
+                    </div>
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        {orders.length === 0 && <div className="col-span-2 text-center py-20 text-slate-400">Нет активных заказов</div>}
+                        {orders.map(order => (
+                            <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-2xl shadow-lg">
+                                            {order.table_number || '?'}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-xl text-slate-800">Заказ #{order.id}</h3>
+                                            <div className="text-xs text-slate-500 flex flex-col gap-1 mt-1">
+                                                {order.phone_number && <span><i className="fa-solid fa-phone"></i> {order.phone_number}</span>}
+                                                {order.waiter_name && <span className="text-purple-600"><i className="fa-solid fa-user-tie"></i> {order.waiter_name}</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <select value={order.status} onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                                        className={`px-3 py-2 rounded-lg text-xs font-bold border outline-none cursor-pointer ${getStatusColor(order.status)}`}>
+                                        {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-2 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-100 max-h-40 overflow-y-auto">
+                                    {order.items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between text-sm items-center border-b border-slate-200 last:border-0 pb-2 last:pb-0 mb-2 last:mb-0">
+                                            <span className="text-slate-700 font-medium">{item.name}</span>
+                                            <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs">x{item.quantity}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-auto">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs text-slate-400 uppercase font-bold">Итого</span>
+                                        <span className="text-2xl font-bold text-slate-900">{order.total_price} ₸</span>
+                                    </div>
+                                    <button onClick={() => setChatOrder(order.id)} className="flex items-center gap-2 bg-blue-50 text-blue-600 px-5 py-3 rounded-xl font-bold hover:bg-blue-100 transition">
+                                        <i className="fa-regular fa-comments text-lg"></i> Чат
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {chatOrder && <ChatModal orderId={chatOrder} onClose={() => setChatOrder(null)} />}
+                </div>
+            );
+        }
+        function ChatModal({ orderId, onClose }) {
+            const [data, setData] = useState(null);
+            const [input, setInput] = useState('');
+            const chatEndRef = React.useRef(null);
+
+            const fetchChat = useCallback(async () => {
+                const res = await fetch(`${API_BASE_URL}/orders/${orderId}/chat`);
+                if (res.ok) setData(await res.json());
+            }, [orderId]);
+
+            useEffect(() => {
+                fetchChat();
+                const interval = setInterval(fetchChat, 3000);
+                return () => clearInterval(interval);
+            }, [fetchChat]);
+
+            useEffect(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), [data]);
+
+            const sendMessage = async () => {
+                if (!input.trim()) return;
+                await fetch(`${API_BASE_URL}/orders/${orderId}/send_message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: input })
+                });
+                setInput('');
+                fetchChat();
+            };
+
+            const toggleBot = async () => {
+                if (!data) return;
+                await fetch(`${API_BASE_URL}/orders/${orderId}/toggle_bot`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_bot_active: !data.is_bot_active })
+                });
+                fetchChat();
+            };
+
+            if (!data) return null;
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content h-[600px] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4 border-b pb-4">
+                            <div>
+                                <h3 className="font-bold text-lg">Чат заказа #{orderId}</h3>
+                                <p className="text-xs text-slate-500">{data.customer_username}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={toggleBot} className={`px-3 py-1 rounded-full text-xs font-bold transition ${data.is_bot_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {data.is_bot_active ? '🤖 Бот активен' : '👤 Оператор'}
+                                </button>
+                                <button onClick={onClose}><i className="fa-solid fa-xmark text-slate-400 hover:text-slate-800 text-xl"></i></button>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto space-y-3 p-2 bg-slate-50 rounded-xl mb-4 border border-slate-100">
+                            {data.messages.length === 0 && <div className="text-center text-slate-400 mt-10">История пуста</div>}
+                            {data.messages.map((msg, idx) => {
+                                const isMe = msg.sender === 'admin';
+                                const isBot = msg.sender === 'bot';
+                                return (
+                                    <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${isMe ? 'bg-blue-500 text-white' : isBot ? 'bg-slate-200 text-slate-600' : 'bg-white border border-slate-200 text-slate-800'}`}>
+                                            {isBot && <div className="text-xs font-bold mb-1"><i className="fa-solid fa-robot"></i> Nomi</div>}
+                                            {msg.content}
+                                            <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-blue-100' : 'text-slate-400'}`}>
+                                                {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            <div ref={chatEndRef} />
+                        </div>
+
+                        <div className="flex gap-2">
+                            <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()}
+                                className="flex-1 border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Сообщение..." />
+                            <button onClick={sendMessage} className="bg-blue-600 text-white px-6 rounded-xl hover:bg-blue-700 transition">
+                                <i className="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- OTHER MANAGERS (UNCHANGED) ---
+
+        function StaffManager() {
+            const [staff, setStaff] = useState([]);
+            const [modalOpen, setModalOpen] = useState(false);
+            const [editUser, setEditUser] = useState(null);
+
+            const fetchStaff = async () => {
+                const res = await fetch(`${API_BASE_URL}/staff/`);
+                setStaff(await res.json());
+            };
+            useEffect(() => { fetchStaff(); }, []);
+
+            const handleSave = async (data) => {
+                const url = editUser ? `${API_BASE_URL}/staff/${editUser.id}` : `${API_BASE_URL}/staff/`;
+                const method = editUser ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) { setModalOpen(false); setEditUser(null); fetchStaff(); }
+                else { alert("Ошибка сохранения"); }
+            };
+
+            const handleDelete = async (id) => {
+                if(confirm("Удалить сотрудника?")) {
+                    await fetch(`${API_BASE_URL}/staff/${id}`, { method: 'DELETE' });
+                    fetchStaff();
+                }
+            };
+
+            const openEdit = (u) => { setEditUser(u); setModalOpen(true); };
+
+            return (
+                <div>
+                     <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold text-slate-800">Персонал ресторана</h2>
+                        <button onClick={() => setModalOpen(true)} className="bg-green-500 text-white font-bold py-2 px-6 rounded-xl hover:bg-green-600 shadow-lg transition">
+                            <i className="fa-solid fa-user-plus mr-2"></i>Добавить официанта
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {staff.map(u => (
+                            <div key={u.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-xl">
+                                        <i className="fa-solid fa-user-tie"></i>
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-lg">{u.username}</h3>
+                                        <p className="text-xs text-slate-500">
+                                            {u.is_active ? <span className="text-green-500">Активен</span> : <span className="text-red-500">Отключен</span>}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => openEdit(u)} className="text-blue-400 hover:text-blue-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-blue-50 transition">
+                                        <i className="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button onClick={() => handleDelete(u.id)} className="text-red-400 hover:text-red-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 transition">
+                                        <i className="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {staff.length === 0 && <p className="text-slate-500 col-span-3 text-center py-10">Пока нет сотрудников. Добавьте первого!</p>}
+                    </div>
+
+                    {modalOpen && <StaffFormModal onClose={() => setModalOpen(false)} onSave={handleSave} />}
+                </div>
+            )
+        }
+
+        function StaffFormModal({ user, onClose, onSave }) {
+            const [username, setUsername] = useState(user?.username || '');
+            const [password, setPassword] = useState('');
+            const [isActive, setIsActive] = useState(user?.is_active ?? true);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave({ username, password, is_active: isActive });
+            }
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-2xl font-bold mb-4">{user ? 'Редактировать' : 'Новый официант'}</h3>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {!user && (
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Логин</label>
+                                <input required className="w-full border p-2 rounded-lg" value={username} onChange={e => setUsername(e.target.value)} />
+                            </div>
+                            )}
+                            <div>
+                                <label className="block text-sm font-medium mb-1">{user ? 'Новый пароль (оставьте пустым если не менять)' : 'Пароль'}</label>
+                                <input className="w-full border p-2 rounded-lg" type="password" value={password} onChange={e => setPassword(e.target.value)} required={!user} />
+                            </div>
+                            <label className="flex items-center gap-2 font-bold text-slate-700">
+                                <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
+                                Учетная запись активна
+                            </label>
+                            <div className="flex justify-end gap-2 pt-4">
+                                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg">Отмена</button>
+                                <button className="px-4 py-2 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600">Создать</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )
+        }
+
+        function CategoryManager() {
+            const [categories, setCategories] = useState([]);
+            const [form, setForm] = useState({ name: '', sort_order: 0, is_active: true });
+            const [isEditing, setIsEditing] = useState(null);
+
+            const fetchCats = async () => {
+                const res = await fetch('/api/categories/');
+                setCategories(await res.json());
+            };
+            useEffect(() => { fetchCats(); }, []);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const url = isEditing ? `/api/categories/${isEditing}` : '/api/categories/';
+                const method = isEditing ? 'PUT' : 'POST';
+                await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(form)
+                });
+                setForm({ name: '', sort_order: 0, is_active: true });
+                setIsEditing(null);
+                fetchCats();
+            };
+
+            const handleDelete = async (id) => {
+                if(!confirm("Удалить категорию?")) return;
+                await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+                fetchCats();
+            };
+
+            const startEdit = (cat) => {
+                setForm(cat);
+                setIsEditing(cat.id);
+            };
+
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 className="font-bold text-xl mb-4">{isEditing ? 'Редактировать' : 'Новая категория'}</h3>
+                        <form onSubmit={handleSubmit} className="space-y-3">
+                            <input className="w-full border p-2 rounded" placeholder="Название" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                            <input className="w-full border p-2 rounded" type="number" placeholder="Сортировка" value={form.sort_order} onChange={e => setForm({...form, sort_order: parseInt(e.target.value)})} />
+                            <label className="flex items-center gap-2">
+                                <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
+                                Активна
+                            </label>
+                            <button className="w-full bg-amber-500 text-white py-2 rounded font-bold">{isEditing ? 'Сохранить' : 'Создать'}</button>
+                            {isEditing && <button type="button" onClick={() => { setIsEditing(null); setForm({ name: '', sort_order: 0, is_active: true }); }} className="w-full bg-slate-200 mt-2 py-2 rounded">Отмена</button>}
+                        </form>
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                        {categories.map(c => (
+                            <div key={c.id} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
+                                <div>
+                                    <span className="font-bold text-lg">{c.name}</span>
+                                    <span className="text-xs text-slate-400 ml-2">Sort: {c.sort_order}</span>
+                                    {!c.is_active && <span className="ml-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded">Hidden</span>}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => startEdit(c)} className="text-blue-500 p-2"><i className="fa-solid fa-pen"></i></button>
+                                    <button onClick={() => handleDelete(c.id)} className="text-red-500 p-2"><i className="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function MenuManager() {
+            const [items, setItems] = useState([]);
+            const [categories, setCategories] = useState([]);
+            const [modalOpen, setModalOpen] = useState(false);
+            const [editItem, setEditItem] = useState(null);
+
+            const fetchData = async () => {
+                const [resItems, resCats] = await Promise.all([fetch('/api/menu/'), fetch('/api/categories/')]);
+                setItems(await resItems.json());
+                setCategories(await resCats.json());
+            };
+            useEffect(() => { fetchData(); }, []);
+
+            const handleDelete = async (id) => {
+                if(!confirm("Удалить блюдо?")) return;
+                await fetch(`/api/menu/${id}`, { method: 'DELETE' });
+                fetchData();
+            };
+
+            return (
+                <div>
+                     <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold text-slate-800">Меню ресторана</h2>
+                        <button onClick={() => { setEditItem(null); setModalOpen(true); }} className="bg-amber-500 text-white font-bold py-2 px-6 rounded-xl hover:bg-amber-600 shadow-lg transition">
+                            <i className="fa-solid fa-plus mr-2"></i>Добавить блюдо
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {items.map(i => (
+                            <div key={i.id} className="bg-white p-4 rounded-xl shadow-sm border flex gap-4">
+                                <img src={i.image_url || 'https://placehold.co/100'} className="w-24 h-24 object-cover rounded-lg bg-slate-100" />
+                                <div className="flex-1">
+                                    <div className="flex justify-between">
+                                        <h4 className="font-bold">{i.name}</h4>
+                                        <span className="font-bold text-amber-600">{i.price} ₸</span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 line-clamp-2 mt-1">{i.description}</p>
+                                    <div className="mt-2 flex gap-2 text-xs">
+                                        {!i.is_active && <span className="bg-red-100 text-red-600 px-2 rounded">Скрыто</span>}
+                                        <span className="bg-slate-100 px-2 rounded">Sort: {i.sort_order}</span>
+                                        {i.stock !== null && <span className={`px-2 rounded border ${i.stock === 0 ? 'bg-red-50 text-red-500 border-red-200' : 'bg-green-50 text-green-600 border-green-200'}`}>Ост: {i.stock}</span>}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col justify-between">
+                                    <button onClick={() => { setEditItem(i); setModalOpen(true); }} className="text-blue-500"><i className="fa-solid fa-pen"></i></button>
+                                    <button onClick={() => handleDelete(i.id)} className="text-red-500"><i className="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {modalOpen && <MenuItemModal item={editItem} categories={categories} onClose={() => setModalOpen(false)} onSave={() => { setModalOpen(false); fetchData(); }} />}
+                </div>
+            );
+        }
+
+        function MenuItemModal({ item, categories, onClose, onSave }) {
+            const isEdit = !!item;
+            const [name, setName] = useState(item?.name || '');
+            const [price, setPrice] = useState(item?.price || '');
+            const [desc, setDesc] = useState(item?.description || '');
+            const [sort, setSort] = useState(item?.sort_order || 0);
+            const [active, setActive] = useState(item?.is_active ?? true);
+            const [stock, setStock] = useState(item?.stock ?? null);
+            const [selectedCats, setSelectedCats] = useState(item?.category_ids || []);
+            const [file, setFile] = useState(null);
+
+            const [imageUrl, setImageUrl] = useState(item?.image_url || '');
+            const [isGenerating, setIsGenerating] = useState(false);
+            const aiInputRef = React.useRef(null);
+
+            const handleGoogleGenerate = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                setIsGenerating(true);
+                // Заглушка
+                setImageUrl('https://i.gifer.com/ZZ5H.gif');
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const res = await fetch('/api/menu/generate-image-google', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        setImageUrl(data.image_url);
+                        if (!desc) setDesc(data.description);
+                        alert("✨ Gemini & Imagen: Блюдо готово!");
+                    } else {
+                        alert("Ошибка: " + data.error);
+                        setImageUrl('');
+                    }
+                } catch (err) {
+                    alert("Ошибка сети");
+                    setImageUrl('');
+                } finally {
+                    setIsGenerating(false);
+                    e.target.value = null;
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const fd = new FormData();
+                fd.append('name', name);
+                fd.append('price', price);
+                fd.append('description', desc);
+                fd.append('sort_order', sort);
+                fd.append('is_active', active);
+                if (stock !== null) fd.append('stock', stock);
+                selectedCats.forEach(c => fd.append('categories', c));
+
+                if (file) fd.append('image', file);
+                if (!file && imageUrl) fd.append('image_url_direct', imageUrl);
+
+                const url = isEdit ? `/api/menu/${item.id}` : '/api/menu/';
+
+                if (isEdit && !file) {
+                     await fetch(url, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            name, price, description: desc, sort_order: sort,
+                            is_active: active, categories: selectedCats,
+                            image_url: imageUrl,
+                            stock: stock
+                        })
+                    });
+                } else {
+                    await fetch(url, { method: 'POST', body: fd });
+                }
+                onSave();
+            };
+
+            const toggleCat = (id) => {
+                if (selectedCats.includes(id)) setSelectedCats(selectedCats.filter(c => c !== id));
+                else setSelectedCats([...selectedCats, id]);
+            };
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content max-w-lg" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-2xl font-bold mb-4">{isEdit ? 'Редактировать блюдо' : 'Новое блюдо'}</h3>
+                        <form onSubmit={handleSubmit} className="space-y-3">
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 shadow-sm">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">AI Фотостудия</label>
+                                <input type="file" ref={aiInputRef} onChange={handleGoogleGenerate} accept="image/*" className="hidden" />
+
+                                <div className="flex gap-2 mb-3">
+                                    <button type="button" onClick={() => aiInputRef.current.click()} disabled={isGenerating}
+                                        className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-bold text-sm hover:shadow-lg transition flex items-center justify-center gap-2 transform active:scale-95">
+                                        {isGenerating ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-wand-magic-sparkles"></i>}
+                                        {isGenerating ? 'Gemini рисует...' : 'Создать шедевр из фото'}
+                                    </button>
+                                </div>
+                                {imageUrl && (
+                                    <div className="relative h-48 rounded-lg overflow-hidden border border-slate-300 shadow-inner group">
+                                        <img src={imageUrl} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+                                        <button type="button" onClick={() => setImageUrl('')} className="absolute top-2 right-2 bg-black/50 hover:bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center transition">
+                                            <i className="fa-solid fa-times"></i>
+                                        </button>
+                                    </div>
+                                )}
+                                {!imageUrl && (
+                                    <div className="text-center text-xs text-slate-400">
+                                        Нажмите кнопку выше, чтобы сфотографировать блюдо. <br/>AI улучшит освещение и подачу.
+                                    </div>
+                                )}
+                            </div>
+
+                            <input className="w-full border p-2 rounded" placeholder="Название" value={name} onChange={e => setName(e.target.value)} required />
+                            <textarea className="w-full border p-2 rounded" placeholder="Описание" value={desc} onChange={e => setDesc(e.target.value)} rows="3" />
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <input className="w-full border p-2 rounded" type="number" placeholder="Цена" value={price} onChange={e => setPrice(e.target.value)} required />
+                                <input className="w-full border p-2 rounded" type="number" placeholder="Сортировка" value={sort} onChange={e => setSort(e.target.value)} />
+                                <div className="relative">
+                                    <input className="w-full border p-2 rounded" type="number" placeholder="∞" value={stock === null ? '' : stock} onChange={e => setStock(e.target.value === '' ? null : parseInt(e.target.value))} />
+                                    <span className="absolute right-2 top-2 text-xs text-slate-400 pointer-events-none">Остаток</span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1 mb-2">Оставьте поле "Остаток" пустым для бесконечного количества.</p>
+
+                            <div>
+                                <label className="block text-sm font-bold mb-1">Категории</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {categories.map(c => (
+                                        <button type="button" key={c.id} onClick={() => toggleCat(c.id)}
+                                            className={`px-3 py-1 text-xs rounded-full border ${selectedCats.includes(c.id) ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600'}`}>
+                                            {c.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {!imageUrl && (
+                                <div className="mt-4 pt-4 border-t border-slate-100">
+                                    <label className="block text-sm font-bold mb-1">Обычная загрузка</label>
+                                    <input type="file" onChange={e => setFile(e.target.files[0])} className="text-sm text-slate-500" />
+                                </div>
+                            )}
+
+                            <label className="flex items-center gap-2 mt-2">
+                                <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} /> Активно
+                            </label>
+
+                            <div className="flex justify-end gap-2 mt-6">
+                                <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-100 rounded hover:bg-slate-200 transition">Отмена</button>
+                                <button className="px-6 py-2 bg-amber-500 text-white rounded font-bold hover:bg-amber-600 shadow-md transition">Сохранить</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )
+        }
+
+        function SliderManager() {
+            const [slides, setSlides] = useState([]);
+            const [formOpen, setFormOpen] = useState(false);
+            const [title, setTitle] = useState('');
+            const [desc, setDesc] = useState('');
+            const [file, setFile] = useState(null);
+
+            const fetchSlides = async () => {
+                const res = await fetch('/api/slider/');
+                setSlides(await res.json());
+            };
+            useEffect(() => { fetchSlides(); }, []);
+
+            const handleCreate = async (e) => {
+                e.preventDefault();
+                const fd = new FormData();
+                fd.append('title', title);
+                fd.append('description', desc);
+                if (file) fd.append('image', file);
+
+                await fetch('/api/slider/', { method: 'POST', body: fd });
+                setFormOpen(false); setTitle(''); setDesc(''); setFile(null);
+                fetchSlides();
+            };
+
+            const handleDelete = async (id) => {
+                if(!confirm("Удалить баннер?")) return;
+                await fetch(`/api/slider/${id}`, { method: 'DELETE' });
+                fetchSlides();
+            };
+
+            return (
+                <div>
+                     <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold text-slate-800">Рекламные баннеры</h2>
+                        <button onClick={() => setFormOpen(true)} className="bg-amber-500 text-white font-bold py-2 px-6 rounded-xl hover:bg-amber-600 shadow-lg transition">
+                            <i className="fa-solid fa-plus mr-2"></i>Добавить баннер
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6">
+                        {slides.map(s => (
+                            <div key={s.id} className="bg-white rounded-2xl shadow-sm border overflow-hidden flex h-48">
+                                <img src={s.image_url} className="w-1/3 object-cover" />
+                                <div className="p-6 flex-1 flex flex-col justify-center">
+                                    <h3 className="text-2xl font-bold">{s.title}</h3>
+                                    <p className="text-slate-500">{s.description}</p>
+                                </div>
+                                <button onClick={() => handleDelete(s.id)} className="px-6 text-red-400 hover:text-red-600 hover:bg-red-50 transition border-l border-slate-100">
+                                    <i className="fa-solid fa-trash text-xl"></i>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    {formOpen && (
+                        <div className="modal-overlay" onClick={() => setFormOpen(false)}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-2xl font-bold mb-4">Новый баннер</h3>
+                                <form onSubmit={handleCreate} className="space-y-4">
+                                    <input className="w-full border p-2 rounded" placeholder="Заголовок" value={title} onChange={e => setTitle(e.target.value)} required />
+                                    <input className="w-full border p-2 rounded" placeholder="Описание" value={desc} onChange={e => setDesc(e.target.value)} />
+                                    <input type="file" onChange={e => setFile(e.target.files[0])} required />
+                                    <button className="w-full bg-amber-500 text-white py-2 rounded font-bold">Загрузить</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )
+        }
+        function SettingsManager() {
+            const [tableCount, setTableCount] = useState(10);
+            const [isSaving, setIsSaving] = useState(false);
+            const menuLink = `${window.location.origin}/r/${RESTAURANT_ID}`;
+
+            const handleSave = async () => {
+                setIsSaving(true);
+                try {
+                    await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ table_count: tableCount })
+                    });
+                    alert('Настройки сохранены! Столики обновлены.');
+                } catch(e) {
+                    alert('Ошибка сохранения');
+                } finally {
+                    setIsSaving(false);
+                }
+            };
+
+            const copyLink = () => {
+                navigator.clipboard.writeText(menuLink);
+                alert("Ссылка скопирована!");
+            };
+
+            return (
+                <div className="max-w-4xl">
+                    <h2 className="text-3xl font-bold mb-6 text-slate-800">Настройки ресторана</h2>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="space-y-6">
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                <h3 className="text-xl font-bold mb-4"><i className="fa-solid fa-link mr-2 text-amber-500"></i>Ссылка на меню</h3>
+                                <p className="text-sm text-slate-500 mb-3">Прямая ссылка для гостей (без номера стола):</p>
+                                <div className="flex gap-2">
+                                    <input readOnly value={menuLink} className="flex-1 bg-slate-50 border p-2 rounded-lg text-sm text-slate-600" />
+                                    <button onClick={copyLink} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 rounded-lg font-bold transition">
+                                        <i className="fa-regular fa-copy"></i>
+                                    </button>
+                                </div>
+                                <div className="mt-4">
+                                    <a href={menuLink} target="_blank" className="text-amber-500 hover:underline text-sm font-bold">
+                                        Открыть меню в новой вкладке <i className="fa-solid fa-external-link-alt ml-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                <h3 className="text-xl font-bold mb-4">Столики</h3>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Количество столиков</label>
+                                    <input type="number" min="1" max="100" value={tableCount} onChange={e => setTableCount(e.target.value)}
+                                           className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none" />
+                                    <p className="text-xs text-slate-400 mt-2">При увеличении количества, новые QR-коды будут добавлены в PDF автоматически.</p>
+                                </div>
+                                <button onClick={handleSave} disabled={isSaving} className="w-full bg-slate-800 text-white font-bold py-3 px-6 rounded-xl hover:bg-slate-700 transition disabled:opacity-50">
+                                    {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
+                            <h3 className="text-xl font-bold mb-4"><i className="fa-solid fa-qrcode mr-2 text-blue-500"></i>QR Меню (PDF)</h3>
+
+                            <div className="flex-1 bg-slate-100 rounded-xl p-4 mb-6 border border-slate-200 flex flex-col items-center justify-center">
+                                <p className="text-xs text-slate-400 font-bold mb-2 uppercase tracking-wider">Предпросмотр макета</p>
+
+                                <div className="bg-white w-48 h-64 shadow-xl border border-slate-200 relative flex flex-col items-center p-4 text-center">
+                                    <div className="absolute inset-0 border-2 border-dashed border-slate-300 pointer-events-none"></div>
+
+                                    <div className="bg-slate-800 text-white w-full py-1 rounded mb-2 text-[10px] font-bold uppercase truncate px-1">
+                                        {RESTAURANT_NAME}
+                                    </div>
+                                    <div className="w-20 h-20 bg-slate-900 mb-2 flex items-center justify-center">
+                                        <i className="fa-solid fa-qrcode text-white text-3xl"></i>
+                                    </div>
+                                    <div className="text-amber-500 font-bold text-3xl leading-none">1</div>
+                                    <div className="text-[8px] text-slate-500 uppercase font-bold mb-2">Table Number</div>
+                                    <div className="font-bold text-xs">SCAN TO ORDER</div>
+                                    <div className="text-[8px] text-slate-400">No app download</div>
+
+                                    <div className="mt-auto text-amber-500 font-bold text-xl">1</div>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-3 text-center">Формат А4, 4 карточки на лист.<br/>Готово к печати.</p>
+                            </div>
+
+                            <a href="/admin/download_qr" target="_blank" className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 text-center flex items-center justify-center">
+                                <i className="fa-solid fa-file-pdf mr-2"></i>Скачать PDF макет
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AdminPanel />);
+    {% endraw %}
+    </script>
+</body>
+</html>

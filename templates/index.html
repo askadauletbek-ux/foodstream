@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{ restaurant_name }} | Menu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        /* Custom Animations */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+
+        .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-scale-in { animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+        .skeleton {
+            background: linear-gradient(to right, #f1f5f9 4%, #e2e8f0 25%, #f1f5f9 36%);
+            background-size: 1000px 100%;
+            animation: shimmer 2s infinite linear;
+        }
+
+        /* Utilities */
+        * { -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* --- Обновленные стили модальных окон --- */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(6px); /* Плавное размытие */
+            -webkit-backdrop-filter: blur(6px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100;
+            animation: fadeIn 0.3s ease-out forwards;
+            padding: 1rem;
+        }
+
+        /* Универсальная карточка по центру (адаптивная) */
+        .modal-content-center {
+            background: white;
+            width: 100%;
+            max-width: 420px; /* Оптимальная ширина */
+            border-radius: 1.5rem;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            /* Пружинистая анимация */
+            animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transform-origin: center;
+            position: relative;
+        }
+
+        /* Шторка снизу (оставлена для специфичных случаев) */
+        .modal-content-bottom {
+            background: white;
+            width: 100%;
+            max-height: 85vh;
+            border-radius: 1.5rem 1.5rem 0 0;
+            padding: 1.5rem;
+            position: absolute; bottom: 0; left: 0; right: 0;
+            animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.92); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-amber-100 selection:text-amber-800 pb-24 lg:pb-0">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const RESTAURANT_ID = {{ restaurant_id }};
+        const RESTAURANT_NAME = "{{ restaurant_name }}";
+
+    {% raw %}
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- UTILS ---
+        const getGuestToken = () => {
+            let token = localStorage.getItem('fs_guest_token');
+            if (!token) {
+                token = 'guest_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('fs_guest_token', token);
+            }
+            return token;
+        };
+
+        const formatPrice = (price) => new Intl.NumberFormat('ru-RU').format(price);
+
+        function QRScannerModal({ onClose, onScanSuccess }) {
+            const [permissionError, setPermissionError] = useState(false);
+            const html5QrCodeRef = useRef(null);
+
+            useEffect(() => {
+                const html5QrCode = new Html5Qrcode("reader");
+                html5QrCodeRef.current = html5QrCode;
+
+                const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+
+                const startScanner = () => {
+                    html5QrCode.start({ facingMode: "environment" }, config,
+                        (decodedText) => {
+                            html5QrCode.stop().then(() => onScanSuccess(decodedText)).catch(e => {});
+                        },
+                        (errorMessage) => {} // Игнорируем ошибки каждого кадра
+                    ).catch(err => {
+                        console.error("Ошибка камеры:", err);
+                        setPermissionError(true); // <--- Включаем режим ошибки
+                    });
+                };
+
+                setTimeout(startScanner, 300); // Задержка для рендера
+
+                return () => {
+                    if (html5QrCode.isScanning) { html5QrCode.stop().catch(e => {}); }
+                };
+            }, []);
+
+            const handleRetry = () => window.location.reload(); // Перезагрузка для сброса прав
+
+            return (
+                <Modal onClose={onClose}>
+                    <div className="flex flex-col items-center text-center">
+                        {permissionError ? (
+                            <div className="animate-fade-in w-full">
+                                <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
+                                    <i className="fa-solid fa-camera-slash text-3xl"></i>
+                                </div>
+                                <h3 className="text-xl font-bold mb-2 text-slate-800">Нет доступа к камере</h3>
+                                <p className="text-slate-500 mb-6 text-sm leading-relaxed">
+                                    Возможно, вы запретили доступ или браузер блокирует камеру.
+                                </p>
+                                <button onClick={handleRetry} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition active:scale-95 shadow-xl shadow-slate-200 mb-3">
+                                    Попробовать снова
+                                </button>
+                                <button onClick={onClose} className="text-slate-400 font-bold text-sm py-2 hover:text-slate-600">Отмена</button>
+                            </div>
+                        ) : (
+                            <div className="w-full">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-xl font-bold text-slate-800">Сканирование</h3>
+                                    <button onClick={onClose} className="w-8 h-8 bg-slate-100 rounded-full text-slate-500 flex items-center justify-center hover:bg-slate-200 transition"><i className="fa-solid fa-times"></i></button>
+                                </div>
+                                <div className="relative rounded-2xl overflow-hidden bg-black aspect-square mb-6 shadow-inner ring-1 ring-black/10">
+                                    <div id="reader" className="w-full h-full"></div>
+                                    {/* Декор видоискателя и анимация сканирования */}
+                                    <div className="absolute inset-0 pointer-events-none border-[30px] border-black/30">
+                                        <div className="w-full h-full border-2 border-white/50 rounded-lg relative"></div>
+                                    </div>
+                                    <div className="absolute top-0 left-0 w-full h-0.5 bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.8)] animate-[scan_2s_infinite]"></div>
+                                </div>
+                                <p className="text-sm text-slate-400">Наведите камеру на QR-код стола</p>
+                                <style>{`@keyframes scan { 0% { top: 10%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 90%; opacity: 0; } }`}</style>
+                            </div>
+                        )}
+                    </div>
+                </Modal>
+            );
+        }
+
+        // --- SKELETONS ---
+        function SkeletonCard() {
+            return (
+                <div className="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-100 h-full flex flex-col">
+                    <div className="h-48 skeleton w-full"></div>
+                    <div className="p-5 flex flex-col flex-grow space-y-3">
+                        <div className="h-6 skeleton w-3/4 rounded-full"></div>
+                        <div className="h-4 skeleton w-full rounded-full"></div>
+                        <div className="h-4 skeleton w-1/2 rounded-full mb-2"></div>
+                        <div className="mt-auto flex justify-between items-center pt-2">
+                            <div className="h-8 skeleton w-20 rounded-xl"></div>
+                            <div className="h-10 skeleton w-28 rounded-xl"></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function SkeletonSlider() {
+            return <div className="w-full h-64 md:h-96 rounded-3xl mb-8 skeleton shadow-lg"></div>;
+        }
+
+        // --- COMPONENTS ---
+
+        function Modal({ children, onClose, type = 'center' }) {
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div
+                        className={`bg-white shadow-2xl overflow-hidden flex flex-col ${type === 'bottom' ? 'modal-content-bottom w-full p-6' : 'modal-content-center'}`}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {type === 'bottom' && (
+                            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6 flex-shrink-0"></div>
+                        )}
+                        {children}
+                    </div>
+                </div>
+            );
+        }
+
+        function NameEntryModal({ onSave }) {
+            const [name, setName] = useState('');
+            return (
+                <Modal onClose={() => {}}>
+                    <div className="text-center">
+                        <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                            <i className="fa-solid fa-user-tag text-3xl"></i>
+                        </div>
+                        <h3 className="text-2xl font-bold mb-2 text-slate-900">Давайте знакомиться!</h3>
+                        <p className="text-slate-500 mb-8 text-sm font-medium">Как к вам обращаться?</p>
+                        <input
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl mb-4 text-center font-bold text-lg outline-none focus:border-amber-500 focus:bg-white transition-all placeholder:text-slate-300"
+                            placeholder="Ваше имя"
+                            autoFocus
+                        />
+                        <button
+                            onClick={() => name.trim() && onSave(name)}
+                            disabled={!name.trim()}
+                            className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                        >
+                            Продолжить
+                        </button>
+                    </div>
+                </Modal>
+            );
+        }
+
+        function JoinOrNewModal({ ownerName, status, onJoin, onReset }) {
+            // Разрешаем сброс только если заказ в стадии сборки (BASKET_ASSEMBLY) или статус неизвестен
+            const canReset = !status || status === 'BASKET_ASSEMBLY';
+
+            return (
+                <Modal onClose={() => {}}>
+                    <div className="text-center">
+                        <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i className="fa-solid fa-users-viewfinder text-3xl"></i>
+                        </div>
+                        <h3 className="text-2xl font-bold mb-3 text-slate-900">Столик занят</h3>
+                        <div className="bg-slate-50 p-4 rounded-2xl mb-6 border border-slate-100">
+                            <p className="text-slate-600 text-sm">
+                                Активный заказ создал: <br/>
+                                <span className="text-slate-900 font-bold text-lg block mt-1">{ownerName || 'Гость'}</span>
+                            </p>
+                            {!canReset && (
+                                <div className="mt-3 bg-orange-100 text-orange-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2">
+                                    <i className="fa-solid fa-fire-burner"></i> Заказ уже готовится
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-3">
+                            <button onClick={onJoin} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2">
+                                <i className="fa-solid fa-user-plus"></i> Присоединиться
+                            </button>
+
+                            <div className="relative py-3">
+                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
+                                <div className="relative flex justify-center"><span className="bg-white px-3 text-xs text-slate-400 font-bold uppercase tracking-wider">Или</span></div>
+                            </div>
+
+                            {canReset ? (
+                                <button onClick={onReset} className="w-full bg-white border-2 border-slate-200 text-slate-500 py-3 rounded-2xl font-bold hover:bg-slate-50 hover:text-slate-700 hover:border-slate-300 transition text-sm">
+                                    Это новый заказ (Сбросить стол)
+                                </button>
+                            ) : (
+                                <button disabled className="w-full bg-slate-100 border-2 border-slate-100 text-slate-400 py-3 rounded-2xl font-bold cursor-not-allowed text-sm">
+                                    Стол занят (Заказ в работе)
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </Modal>
+            );
+        }
+
+        function Slider({ items }) {
+            const [currentIndex, setCurrentIndex] = useState(0);
+            useEffect(() => {
+                if (items.length <= 1) return;
+                const timer = setTimeout(() => {
+                    setCurrentIndex(prev => (prev === items.length - 1 ? 0 : prev + 1));
+                }, 5000);
+                return () => clearTimeout(timer);
+            }, [items, currentIndex]);
+
+            if (!items || items.length === 0) return <SkeletonSlider />;
+
+            return (
+                <div className="w-full h-64 md:h-[450px] rounded-[2rem] mb-10 relative group shadow-2xl shadow-slate-200 overflow-hidden transform translate-z-0">
+                    {items.map((slide, index) => (
+                        <div key={slide.id} className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-20"></div>
+                            <img src={slide.image_url} className="w-full h-full object-cover transform scale-105 group-hover:scale-100 transition-transform duration-[5s]" alt={slide.title} />
+                            <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 z-30 transform transition-transform duration-700">
+                                <h2 className="text-white text-3xl md:text-5xl font-extrabold drop-shadow-lg mb-2 leading-tight">{slide.title}</h2>
+                                <p className="text-slate-200 text-sm md:text-lg max-w-2xl drop-shadow-md line-clamp-2 md:line-clamp-none opacity-90">{slide.description}</p>
+                            </div>
+                        </div>
+                    ))}
+                    {/* Dots */}
+                    <div className="absolute bottom-4 right-6 md:right-12 z-40 flex gap-2">
+                        {items.map((_, idx) => (
+                            <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-8 bg-white' : 'w-2 bg-white/40'}`}></div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function MenuItemCard({ item, totalQty, onAdd, onRemove }) {
+            const isOutOfStock = item.stock === 0;
+            const maxReached = item.stock !== null && totalQty >= item.stock;
+
+            return (
+                <div className={`group bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] overflow-hidden flex flex-col h-full transition-all duration-300 hover:-translate-y-1 relative ${isOutOfStock ? 'opacity-60' : ''}`}>
+                    <div className="h-52 overflow-hidden relative bg-slate-100">
+                        <img
+                            src={item.image_url || 'https://placehold.co/600x400/f1f5f9/94a3b8?text=No+Photo'}
+                            alt={item.name}
+                            className={`w-full h-full object-cover transition-transform duration-700 ${isOutOfStock ? 'grayscale' : 'group-hover:scale-110'}`}
+                            loading="lazy"
+                        />
+                        {isOutOfStock && (
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-10">
+                                <span className="text-white font-bold text-sm border-2 border-white/80 px-4 py-2 rounded-xl transform -rotate-12 tracking-widest uppercase">Sold Out</span>
+                            </div>
+                        )}
+                         {item.stock !== null && item.stock < 5 && !isOutOfStock && (
+                            <div className="absolute top-3 left-3 bg-red-500/90 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm animate-pulse">
+                                Осталось: {item.stock}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-5 flex-grow flex flex-col relative z-20 bg-white">
+                        <div className="flex justify-between items-start mb-2">
+                            <h3 className="text-lg font-bold text-slate-800 leading-tight group-hover:text-amber-600 transition-colors pr-2">{item.name}</h3>
+                        </div>
+                        <p className="text-slate-500 text-xs mb-4 line-clamp-3 leading-relaxed flex-grow">{item.description}</p>
+
+                        <div className="mt-auto flex justify-between items-center gap-2 pt-2 border-t border-slate-50">
+                            <span className="text-xl font-extrabold text-slate-900">{formatPrice(item.price)} <span className="text-sm font-normal text-slate-400">₸</span></span>
+
+                            {isOutOfStock ? (
+                                <button disabled className="bg-slate-100 text-slate-400 px-4 py-2.5 rounded-xl font-bold text-xs uppercase cursor-not-allowed">Недоступно</button>
+                            ) : totalQty > 0 ? (
+                                <div className="flex items-center bg-slate-900 text-white rounded-xl shadow-lg shadow-slate-900/20 overflow-hidden transform transition-all">
+                                    <button onClick={onRemove} className="w-10 h-10 flex items-center justify-center hover:bg-white/20 active:bg-white/30 transition text-lg font-bold">-</button>
+                                    <span className="w-8 text-center font-bold text-sm">{totalQty}</span>
+                                    <button onClick={onAdd} disabled={maxReached} className={`w-10 h-10 flex items-center justify-center transition text-lg font-bold ${maxReached ? 'opacity-50' : 'hover:bg-white/20 active:bg-white/30'}`}>+</button>
+                                </div>
+                            ) : (
+                                <button onClick={onAdd} className="bg-amber-100 text-amber-700 hover:bg-amber-500 hover:text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 shadow-sm hover:shadow-lg active:scale-95 flex items-center gap-2">
+                                    В корзину
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Компонент корзины (объединенный UI)
+        function CartContent({
+            serverItems, pendingItems, totalServer, totalPending, statusKey, statusName,
+            onAdd, onRemove, onCheckout, onCancelOrder, ownerName, isOwner, isCheckoutLoading,
+            isMobile
+        }) {
+            const isDraft = statusKey === 'BASKET_ASSEMBLY' || !statusKey;
+            const isReady = statusKey === 'DELIVERY' || statusKey === 'SUCCESSFULLY_DELIVERED';
+            const hasPending = pendingItems.length > 0;
+            const allItemsEmpty = serverItems.length === 0 && pendingItems.length === 0;
+
+            return (
+                <div className="flex flex-col h-full">
+                    {/* Header */}
+                    <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-2">
+                        <div>
+                            <h2 className="text-2xl font-extrabold text-slate-800">Ваш заказ</h2>
+                            {!isDraft && statusName && <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md mt-1 inline-block">{statusName}</span>}
+                        </div>
+                        {isMobile && <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400"><i className="fa-solid fa-chevron-down"></i></div>}
+                    </div>
+
+                    {allItemsEmpty ? (
+                        <div className="flex-grow flex flex-col items-center justify-center text-center py-12 opacity-50">
+                            <i className="fa-solid fa-basket-shopping text-6xl text-slate-200 mb-4"></i>
+                            <p className="text-slate-400 font-medium">Корзина пуста<br/><span className="text-xs">Добавьте что-нибудь вкусное</span></p>
+                        </div>
+                    ) : (
+                        <div className="flex-grow overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+                            {/* Server Items */}
+                            {serverItems.map(item => {
+                                const canRemove = isDraft || (item.is_drink && !isReady);
+                                return (
+                                    <div key={'srv_'+item.id} className="flex justify-between items-start group">
+                                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                                            <div className="relative">
+                                                <img src={item.image_url} className="w-14 h-14 rounded-xl object-cover border border-slate-100" />
+                                                {!isDraft && <div className="absolute -bottom-1 -right-1 bg-green-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center"><i className="fa-solid fa-check"></i></div>}
+                                            </div>
+                                            <div className="flex-1 min-w-0 pr-2">
+                                                <p className="font-bold text-slate-700 text-sm leading-tight truncate">{item.name}</p>
+                                                <p className="text-xs text-slate-400 mt-1">{formatPrice(item.price)} ₸</p>
+                                                {item.added_by && <p className="text-[10px] text-amber-600 font-bold mt-0.5">👤 {item.added_by}</p>}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100">
+                                            <button onClick={() => onRemove(item.id, false)} disabled={!canRemove} className={`w-7 h-7 flex items-center justify-center rounded-md transition ${canRemove ? 'bg-white shadow-sm text-slate-700 hover:text-red-500' : 'text-slate-300 cursor-not-allowed'}`}>-</button>
+                                            <span className="font-bold text-sm w-5 text-center text-slate-800">{item.quantity}</span>
+                                            <button onClick={() => onAdd(item)} className="w-7 h-7 flex items-center justify-center bg-white shadow-sm rounded-md text-green-600 hover:text-green-700">+</button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {/* Pending Items */}
+                            {hasPending && (
+                                <div className="bg-green-50/50 rounded-2xl p-3 border border-green-100/50">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                        <span className="text-xs font-bold text-green-700 uppercase tracking-wider">Новые позиции</span>
+                                    </div>
+                                    {pendingItems.map(item => (
+                                        <div key={'pnd_'+item.id} className="flex justify-between items-center mb-3 last:mb-0">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-green-600 font-bold border border-green-100 text-xs shadow-sm">
+                                                    +{item.quantity}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-800 text-sm">{item.name}</p>
+                                                    <p className="text-xs text-green-600 font-semibold">{formatPrice(item.price * item.quantity)} ₸</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center bg-white rounded-lg border border-green-100 shadow-sm overflow-hidden">
+                                                <button onClick={() => onRemove(item.id, true)} className="px-2 py-1 text-slate-400 hover:text-red-500 transition"><i className="fa-solid fa-minus text-xs"></i></button>
+                                                <button onClick={() => onAdd(item)} className="px-2 py-1 text-slate-400 hover:text-green-600 transition"><i className="fa-solid fa-plus text-xs"></i></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Footer / Total */}
+                    <div className="pt-4 mt-auto border-t border-slate-100">
+                        <div className="flex justify-between items-end mb-4">
+                            <span className="text-slate-500 font-medium">Итого:</span>
+                            <div className="text-right">
+                                <span className="text-2xl font-extrabold text-slate-800 tracking-tight">{formatPrice(totalServer + totalPending)} ₸</span>
+                                {totalPending > 0 && <div className="text-xs text-green-600 font-bold animate-pulse">+{formatPrice(totalPending)} ₸ добавление</div>}
+                            </div>
+                        </div>
+
+                        {isDraft ? (
+                             isOwner ? (
+                                <button
+                                    onClick={onCheckout}
+                                    disabled={serverItems.length === 0 || isCheckoutLoading}
+                                    className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 active:scale-[0.98] transition-all shadow-xl shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 text-lg"
+                                >
+                                    {isCheckoutLoading ? (
+                                        <>
+                                            <i className="fa-solid fa-circle-notch fa-spin"></i> Обработка...
+                                        </>
+                                    ) : (
+                                        <>Оформить заказ <i className="fa-solid fa-arrow-right"></i></>
+                                    )}
+                                </button>
+                             ) : (
+                                <button disabled className="w-full bg-slate-100 text-slate-400 py-4 rounded-2xl font-bold cursor-not-allowed text-xs uppercase tracking-wide border border-slate-200">
+                                    Ждем подтверждения от {ownerName}
+                                </button>
+                             )
+                        ) : (
+                            <div className="space-y-3">
+                                <button
+                                    onClick={onCheckout}
+                                    disabled={!hasPending}
+                                    className={`w-full py-4 rounded-2xl font-bold transition-all transform ${hasPending ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg hover:shadow-indigo-500/30 scale-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed scale-100'}`}
+                                >
+                                    {hasPending ? 'Отправить на кухню' : 'Заказ готовится...'}
+                                </button>
+
+                                {isOwner && (
+                                    <button onClick={() => {
+                                            if (statusKey === 'IN_PROGRESS' || statusKey === 'DELIVERY') {
+                                                alert("Блюда уже готовятся! Отмена возможна только через официанта.");
+                                            } else if(confirm("Отменить весь заказ?")) { onCancelOrder(); }
+                                        }}
+                                        className="w-full py-3 rounded-2xl font-bold text-red-500 hover:bg-red-50 text-sm transition"
+                                    >
+                                        Отменить заказ
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function OrderModal({ onConfirm, onClose, createdOrder }) {
+            const [phone, setPhone] = useState('');
+
+            if (createdOrder) {
+                return (
+                    <Modal onClose={onClose}>
+                        <div className="text-center py-4">
+                            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-[scaleIn_0.5s_ease-out]">
+                                <i className="fa-solid fa-check text-4xl"></i>
+                            </div>
+                            <h3 className="text-2xl font-bold mb-2 text-slate-800">Заказ принят!</h3>
+                            <p className="text-slate-500 mb-6">Скоро принесем вкусняшки.</p>
+                            <button onClick={onClose} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition">Отлично</button>
+                        </div>
+                    </Modal>
+                );
+            }
+            return (
+                <Modal onClose={onClose} type="bottom">
+                    <div className="text-center sm:text-left">
+                        <h3 className="text-2xl font-bold mb-2">Почти готово</h3>
+                        <p className="text-slate-500 mb-6 text-sm">Оставьте номер для связи на случай вопросов по заказу.</p>
+                        <div className="relative mb-6">
+                            <i className="fa-solid fa-phone absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="tel"
+                                value={phone}
+                                onChange={e => setPhone(e.target.value)}
+                                placeholder="+7 (777) 000-00-00"
+                                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-lg outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
+                                autoFocus
+                            />
+                        </div>
+                        <button onClick={() => onConfirm(phone)} disabled={!phone.trim()} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white py-4 rounded-2xl font-bold hover:shadow-lg disabled:opacity-50 transition text-lg">
+                            Подтвердить
+                        </button>
+                    </div>
+                </Modal>
+            );
+        }
+
+        function ChangesReviewModal({ serverTotal, pendingItems, pendingTotal, onConfirm, onCancel }) {
+            return (
+                <Modal onClose={onCancel}>
+                    <div className="text-center">
+                        <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i className="fa-solid fa-list-check text-2xl"></i>
+                        </div>
+                        <h3 className="text-xl font-bold mb-1">Дозаказ</h3>
+                        <p className="text-slate-500 mb-6 text-sm">Добавляем новые позиции к счету?</p>
+
+                        <div className="bg-slate-50 rounded-2xl p-4 mb-6 border border-slate-100">
+                             <div className="flex justify-between text-slate-500 text-sm mb-2"><span>Было:</span> <span>{formatPrice(serverTotal)} ₸</span></div>
+                             <div className="flex justify-between text-green-600 font-bold text-sm mb-3 pb-3 border-b border-slate-200 border-dashed"><span>Добавляем:</span> <span>+{formatPrice(pendingTotal)} ₸</span></div>
+                             <div className="flex justify-between text-slate-900 font-extrabold text-lg"><span>Станет:</span> <span>{formatPrice(serverTotal + pendingTotal)} ₸</span></div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={onCancel} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50">Назад</button>
+                            <button onClick={onConfirm} className="flex-1 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20">Отправить</button>
+                        </div>
+                    </div>
+                </Modal>
+            );
+        }
+
+        function WaiterCallButton({ restaurantId, tableToken }) {
+            const [called, setCalled] = useState(false);
+            const callWaiter = async () => {
+                if (!tableToken) return alert("Сначала отсканируйте QR стола!");
+                setCalled(true);
+                try {
+                    await fetch('/api/signal/call', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ restaurant_id: restaurantId, table_token: tableToken }) });
+                    setTimeout(() => setCalled(false), 5000);
+                } catch(e) { console.error(e); }
+            };
+            return (
+                <button onClick={callWaiter} disabled={called}
+                    className={`fixed bottom-24 right-4 md:right-8 w-14 h-14 rounded-full shadow-xl shadow-slate-900/20 flex items-center justify-center text-xl text-white transition-all transform z-30 ${called ? 'bg-green-500 scale-110' : 'bg-slate-800 hover:bg-slate-700 active:scale-90'}`}>
+                    {called ? <i className="fa-solid fa-check"></i> : <i className="fa-solid fa-bell"></i>}
+                </button>
+            );
+        }
+function ChatWidget({ restaurantId, tableNumber, orderId, onCartUpdate, menu, onAddToCart, cart, cartTotal }) {
+            const [isOpen, setIsOpen] = useState(false);
+            const [messages, setMessages] = useState([]);
+            const [input, setInput] = useState("");
+            const [isLoading, setIsLoading] = useState(false);
+            const [isCartExpanded, setIsCartExpanded] = useState(false);
+            const messagesEndRef = useRef(null);
+
+            // Подготовка данных корзины
+            const cartItems = useMemo(() => cart ? Object.values(cart) : [], [cart]);
+            const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+
+            // Быстрые команды
+            const QUICK_ACTIONS = [
+                "🍷 Что выпить?",
+                "🍕 Посоветуй пиццу",
+                "🌶 Люблю острое",
+                "🍰 Хочу десерт",
+                "✅ Оформить заказ"
+            ];
+
+            const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
+            // Прокрутка вниз при открытии, новых сообщениях или открытии шторки корзины
+            useEffect(() => {
+                if (isOpen) scrollToBottom();
+            }, [messages, isOpen, isLoading, isCartExpanded]);
+
+            useEffect(() => {
+                if (messages.length === 0) {
+                    setMessages([{
+                        sender: 'bot',
+                        content: 'Привет! Я Nomi, твой AI-официант. 🤖\nЯ знаю всё меню и могу посоветовать идеальное сочетание. Что будем заказывать?'
+                    }]);
+                }
+            }, []);
+
+            // --- Логика получения истории (Polling) ---
+            const fetchHistory = async () => {
+                if (!orderId) return;
+                try {
+                    const res = await fetch(`/api/chat/history?restaurant_id=${restaurantId}&table_token=${tableNumber}`);
+                    const data = await res.json();
+
+                    const msgs = data.messages.map(m => {
+                        let content = m.content;
+                        let recs = [];
+                        if (m.type === 'suggestion') {
+                            try {
+                                const parsed = JSON.parse(m.content);
+                                content = parsed.text;
+                                recs = parsed.items || [];
+                            } catch(e) {}
+                        }
+                        return {
+                            sender: m.sender === 'bot' || m.sender === 'admin' ? 'bot' : 'user',
+                            content: content,
+                            recommendations: recs,
+                            type: m.type,
+                            timestamp: m.timestamp
+                        };
+                    });
+
+                    setMessages(prev => {
+                        if (JSON.stringify(prev) !== JSON.stringify(msgs)) {
+                            const lastMsg = msgs[msgs.length - 1];
+                            if (lastMsg && lastMsg.sender === 'bot') setIsLoading(false);
+                            return msgs;
+                        }
+                        return prev;
+                    });
+
+                    if(onCartUpdate) onCartUpdate();
+                } catch(e) { console.error(e); }
+            };
+
+            useEffect(() => {
+                if(isOpen && orderId) {
+                    fetchHistory();
+                    const interval = setInterval(fetchHistory, 3000);
+                    return () => clearInterval(interval);
+                }
+            }, [isOpen, orderId]);
+
+            // --- Отправка сообщений ---
+            const sendMessage = async (text = input) => {
+                if (!text.trim()) return;
+
+                const userMsg = { sender: 'user', content: text, timestamp: new Date().toISOString() };
+                setMessages(prev => [...prev, userMsg]);
+                setInput("");
+                setIsLoading(true);
+
+                try {
+                    await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: text,
+                            restaurant_id: restaurantId,
+                            table_token: tableNumber
+                        })
+                    });
+                    if (onCartUpdate) onCartUpdate();
+                } catch (error) {
+                    setMessages(prev => [...prev, { sender: 'bot', content: 'Ой, интернет пропал... 😵' }]);
+                    setIsLoading(false);
+                }
+            };
+
+            const handleRecClick = (rec) => {
+                const item = menu.find(i => i.id === rec.id);
+                if(item && onAddToCart) {
+                    for(let i=0; i<rec.quantity; i++) onAddToCart(item);
+                }
+            };
+
+            // --- Рендер ---
+            return (
+                <>
+                    {/* Кнопка открытия (Плавающая) */}
+                    <div className="fixed bottom-6 right-4 md:right-8 z-40 flex flex-col items-end">
+                        {!isOpen && messages.length > 1 && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white z-50 animate-pulse"></div>
+                        )}
+                        <button
+                            onClick={() => setIsOpen(true)}
+                            className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-3xl transition-all duration-300 hover:scale-110 active:scale-95 z-50 ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 bg-slate-900 text-white'}`}
+                        >
+                            <span className="text-2xl">✨</span>
+                        </button>
+                    </div>
+
+                    {/* Оверлей (Фон) */}
+                    <div
+                        className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                        onClick={() => setIsOpen(false)}
+                    ></div>
+
+                    {/* Панель чата (Drawer) */}
+                    <div className={`fixed inset-y-0 right-0 w-full md:w-[450px] bg-[#f8fafc] z-50 shadow-2xl transform transition-transform duration-300 ease-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+
+                        {/* Шапка */}
+                        <div className="bg-white px-4 py-3 shadow-sm border-b border-slate-100 z-20 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md">
+                                    <i className="fa-solid fa-robot"></i>
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 leading-tight">Nomi AI</h3>
+                                    <p className="text-[10px] text-slate-400 font-medium">Онлайн-помощник</p>
+                                </div>
+                            </div>
+
+                            {/* КНОПКА МИНИ-КОРЗИНЫ (Появляется, если есть товары) */}
+                            {cartCount > 0 && (
+                                <button
+                                    onClick={() => setIsCartExpanded(!isCartExpanded)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${isCartExpanded ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
+                                >
+                                    <i className="fa-solid fa-basket-shopping"></i>
+                                    <span>{formatPrice(cartTotal)} ₸</span>
+                                    <i className={`fa-solid fa-chevron-${isCartExpanded ? 'up' : 'down'} text-[10px]`}></i>
+                                </button>
+                            )}
+
+                            <button onClick={() => setIsOpen(false)} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 transition">
+                                <i className="fa-solid fa-xmark text-lg"></i>
+                            </button>
+                        </div>
+
+                        {/* ВЫЕЗЖАЮЩАЯ МИНИ-КОРЗИНА */}
+                        <div className={`bg-white border-b border-slate-200 overflow-hidden transition-all duration-300 ease-in-out z-10 ${isCartExpanded ? 'max-h-64 shadow-md' : 'max-h-0'}`}>
+                            <div className="p-3 space-y-2 overflow-y-auto max-h-64 custom-scrollbar bg-slate-50/50">
+                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">Сейчас в заказе:</div>
+                                {cartItems.map(item => (
+                                    <div key={item.id} className="flex justify-between items-center text-sm bg-white p-2 rounded-xl shadow-sm border border-slate-100">
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                            <img src={item.image_url} className="w-8 h-8 rounded-md object-cover bg-slate-100" />
+                                            <span className="truncate font-medium text-slate-700">{item.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 ml-2 shrink-0">
+                                            <span className="text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-600">{item.quantity} шт</span>
+                                            <span className="font-bold text-slate-800">{formatPrice(item.price * item.quantity)} ₸</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Тело чата */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[#f8fafc]">
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'} animate-fade-in-up`}>
+                                    <div
+                                        className={`max-w-[85%] px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-sm relative ${
+                                            msg.sender === 'user'
+                                            ? 'bg-slate-900 text-white rounded-tr-sm'
+                                            : 'bg-white text-slate-700 border border-slate-100 rounded-tl-sm'
+                                        }`}
+                                    >
+                                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                                        <div className={`text-[10px] mt-1 text-right opacity-50 font-medium`}>
+                                            {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
+                                        </div>
+                                    </div>
+
+                                    {/* Карточки рекомендаций */}
+                                    {msg.recommendations && msg.recommendations.length > 0 && (
+                                        <div className="mt-3 grid gap-2 w-full max-w-[90%]">
+                                            {msg.recommendations.map((rec, rIdx) => {
+                                                const item = menu.find(i => i.id === rec.id);
+                                                if(!item) return null;
+                                                return (
+                                                    <div key={rIdx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3 hover:shadow-md transition-shadow group">
+                                                        <div className="w-14 h-14 shrink-0 rounded-lg bg-slate-100 overflow-hidden relative">
+                                                            <img src={item.image_url} className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-bold text-slate-800 text-sm truncate">{item.name}</div>
+                                                            <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{item.description}</div>
+                                                            <div className="text-xs font-bold text-amber-600 mt-1">{formatPrice(item.price)} ₸</div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleRecClick(rec)}
+                                                            className="h-10 px-4 bg-slate-900 text-white rounded-lg font-bold text-xs shadow-md hover:bg-slate-800 active:scale-95 transition flex flex-col items-center justify-center min-w-[60px]"
+                                                        >
+                                                            <span>+{rec.quantity}</span>
+                                                            <span className="text-[9px] opacity-70 font-normal">В заказ</span>
+                                                        </button>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+
+                            {/* Индикатор загрузки */}
+                            {isLoading && (
+                                <div className="flex items-center gap-2 bg-white p-3 rounded-2xl rounded-tl-none w-fit shadow-sm border border-slate-100 animate-fade-in">
+                                    <div className="flex gap-1">
+                                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></span>
+                                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-100"></span>
+                                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-200"></span>
+                                    </div>
+                                    <span className="text-xs text-slate-400 font-medium">Печатает...</span>
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} className="h-1" />
+                        </div>
+
+                        {/* Нижняя панель */}
+                        <div className="bg-white p-4 border-t border-slate-100 z-20">
+                            {/* Быстрые ответы (Chips) */}
+                            <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-1">
+                                {QUICK_ACTIONS.map((action, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => sendMessage(action)}
+                                        className="whitespace-nowrap px-4 py-2 bg-slate-50 border border-slate-200 text-slate-600 rounded-full text-xs font-bold hover:bg-slate-100 hover:border-slate-300 transition active:scale-95"
+                                    >
+                                        {action}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Поле ввода */}
+                            <div className="flex gap-2 items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-200 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+                                <input
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                                    placeholder="Спросите что-нибудь..."
+                                    className="flex-1 bg-transparent px-3 py-2 text-sm focus:outline-none placeholder:text-slate-400 text-slate-800"
+                                    disabled={isLoading}
+                                />
+                                <button
+                                    onClick={() => sendMessage()}
+                                    disabled={!input.trim() || isLoading}
+                                    className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-xl flex items-center justify-center shadow-md hover:shadow-lg disabled:opacity-50 disabled:shadow-none transition-all transform active:scale-90"
+                                >
+                                    {isLoading ? <i className="fa-solid fa-spinner fa-spin text-sm"></i> : <i className="fa-solid fa-paper-plane text-sm"></i>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            );
+        }
+
+        // --- MAIN APP LOGIC ---
+
+        function App() {
+            const [menu, setMenu] = useState([]);
+            const [sliderItems, setSliderItems] = useState([]);
+            const [cart, setCart] = useState({});
+            const [pendingCart, setPendingCart] = useState({});
+            const [cartStatus, setCartStatus] = useState(null);
+            const [cartStatusName, setCartStatusName] = useState('');
+            const [guestName, setGuestName] = useState(localStorage.getItem('fs_guest_name') || '');
+            const [ownerName, setOwnerName] = useState('');
+            const [isOwner, setIsOwner] = useState(false);
+            const [orderId, setOrderId] = useState(null);
+            const [showJoinModal, setShowJoinModal] = useState(false);
+            const hasCheckedTableRef = useRef(false); // <--- Используем Ref, он не "протухает" в интервалах
+            const [activeCategory, setActiveCategory] = useState('Все');
+            const [isLoading, setIsLoading] = useState(true);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
+            const [createdOrder, setCreatedOrder] = useState(null);
+            const [recommendation, setRecommendation] = useState(null);
+            const [homeRecommendations, setHomeRecommendations] = useState(null);
+            const [isRecModalOpen, setIsRecModalOpen] = useState(false);
+            const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+            const [isMobileCartOpen, setIsMobileCartOpen] = useState(false); // Mobile Sheet State
+            const [showScanner, setShowScanner] = useState(false);
+
+            const cartRef = useRef(null);
+            const cartSignature = useMemo(() => Object.keys(cart).sort().join(','), [cart]);
+            const [tableToken, setTableToken] = useState(null);
+
+            // Fetch Logic Preserved from Original
+            useEffect(() => {
+                if (!cartSignature) { setHomeRecommendations(null); return; }
+                const timer = setTimeout(async () => {
+                    try {
+                        const cartIds = {}; Object.values(cart).forEach(item => cartIds[item.id] = item.quantity);
+                        const res = await fetch('/api/recommend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart: cartIds, restaurant_id: RESTAURANT_ID }) });
+                        const data = await res.json();
+                        if (data.items_data && data.items_data.length > 0) setHomeRecommendations(data);
+                        else setHomeRecommendations(null);
+                    } catch (e) { console.error("Silent Rec Error", e); }
+                }, 2000);
+                return () => clearTimeout(timer);
+            }, [cartSignature]);
+
+            useEffect(() => {
+                setIsLoading(true);
+                const params = new URLSearchParams(window.location.search);
+                const token = params.get('t');
+                if (token) { setTableToken(token); localStorage.setItem('foodstream_table_token', token); }
+                else { const saved = localStorage.getItem('foodstream_table_token'); if (saved) setTableToken(saved); }
+
+                Promise.all([
+                    fetch(`/api/r/${RESTAURANT_ID}/menu`).then(res => res.json()),
+                    fetch(`/api/r/${RESTAURANT_ID}/slider`).then(res => res.json())
+                ]).then(([menuData, sliderData]) => {
+                    setMenu(menuData); setSliderItems(sliderData); setIsLoading(false);
+                }).catch(e => { console.error("Failed to load data", e); setIsLoading(false); });
+            }, []);
+
+            const categories = useMemo(() => ['Все', ...new Set(menu.map(item => item.category))], [menu]);
+            const filteredMenu = useMemo(() => activeCategory === 'Все' ? menu : menu.filter(item => item.category === activeCategory), [menu, activeCategory]);
+
+            const refreshCart = () => {
+                if (!tableToken || !guestName) return;
+                fetch(`/api/cart?restaurant_id=${RESTAURANT_ID}&table_token=${tableToken}`, {
+                    headers: { 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) }
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        setCart(data.items || {});
+                        setCartStatus(data.status_key);
+                        setCartStatusName(data.status);
+                        setOwnerName(data.owner_name);
+                        setIsOwner(data.is_owner);
+                        setOrderId(data.order_id);
+
+                        // Используем Ref.current — он всегда актуален
+                        if (!hasCheckedTableRef.current && data.status_key && !data.is_owner) {
+                            setShowJoinModal(true);
+                            hasCheckedTableRef.current = true; // Блокируем повторное открытие
+                        }
+                    });
+            };
+            useEffect(() => {
+                if(tableToken) {
+                    refreshCart();
+
+                    // Подключаемся к сокетам
+                    const socket = io();
+
+                    // Входим в "комнату" стола, чтобы получать уведомления только для нас
+                    socket.emit('join', { room: tableToken });
+
+                    // Слушаем событие обновления корзины
+                    socket.on('cart_updated', () => {
+                        refreshCart(); // Просто обновляем данные, когда сервер скажет
+                    });
+
+                    return () => {
+                        socket.disconnect();
+                    };
+                }
+            }, [tableToken]);
+
+            // Cart Actions
+            const addToCart = async (item) => {
+                if(!tableToken) {
+                    setShowScanner(true);
+                    return;
+                }
+                const isDraft = !cartStatus || cartStatus === 'BASKET_ASSEMBLY';
+                if (isDraft) {
+                    await fetch('/api/cart/update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) },
+                        body: JSON.stringify({ restaurant_id: RESTAURANT_ID, table_token: tableToken, item_id: item.id, action: 'add' })
+                    });
+                    refreshCart();
+                } else {
+                    setPendingCart(prev => {
+                        const existing = prev[item.id];
+                        return { ...prev, [item.id]: { ...item, quantity: (existing ? existing.quantity : 0) + 1 } };
+                    });
+                }
+            };
+
+            const handleQRScan = (decodedText) => {
+                try {
+                    let token = null;
+                    try {
+                        const urlObj = new URL(decodedText);
+                        token = urlObj.searchParams.get('t');
+                    } catch(e) {
+                        if(decodedText.length > 5 && !decodedText.includes('http')) {
+                            token = decodedText;
+                        }
+                    }
+
+                    if (token) {
+                        setTableToken(token);
+                        localStorage.setItem('foodstream_table_token', token);
+                        setShowScanner(false);
+                        // Простая "красивая" анимация через alert,
+                        // но можно заменить на кастомный модал успеха
+                        alert("Стол успешно привязан! Теперь можно заказывать.");
+                    } else {
+                        alert("Неверный QR-код.");
+                    }
+                } catch (e) {
+                    alert("Ошибка чтения кода.");
+                }
+            };
+
+            const removeFromCart = async (itemId, isPending) => {
+                if (isPending) {
+                    setPendingCart(prev => {
+                        const copy = {...prev};
+                        if (copy[itemId].quantity > 1) copy[itemId].quantity--;
+                        else delete copy[itemId];
+                        return copy;
+                    });
+                } else {
+                    await fetch('/api/cart/update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) },
+                        body: JSON.stringify({ restaurant_id: RESTAURANT_ID, table_token: tableToken, item_id: itemId, action: 'remove' })
+                    });
+                    refreshCart();
+                }
+            };
+
+            const handleCheckoutClick = async () => {
+                setIsMobileCartOpen(false); // Close mobile sheet if open
+                const isDraft = !cartStatus || cartStatus === 'BASKET_ASSEMBLY';
+                if (isDraft) {
+                    setIsCheckoutLoading(true);
+                    if (Object.keys(cart).length > 0) {
+                        try {
+                            const cartIds = {}; Object.values(cart).forEach(item => cartIds[item.id] = item.quantity);
+                            const res = await fetch('/api/recommend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart: cartIds, restaurant_id: RESTAURANT_ID }) });
+                            const data = await res.json();
+                            if (data.items_data && data.items_data.length > 0) { setRecommendation(data); setIsRecModalOpen(true); setIsCheckoutLoading(false); return; }
+                        } catch (e) { console.error("Rec Error", e); }
+                    }
+                    setIsModalOpen(true);
+                    setIsCheckoutLoading(false);
+                } else {
+                    setIsChangeModalOpen(true);
+                }
+            };
+
+            const placeOrder = async (phone) => {
+                if (Object.keys(cart).length === 0 || !phone) return;
+                try {
+                    const res = await fetch('/orders/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Guest-Token': getGuestToken() },
+                        body: JSON.stringify({ phone_number: phone, restaurant_id: RESTAURANT_ID, table_token: tableToken, items: [] })
+                    });
+                    if (!res.ok) throw new Error('Ошибка создания заказа');
+                    const newOrder = await res.json();
+                    setCreatedOrder(newOrder);
+                } catch (error) { alert(error.message); }
+            };
+
+            const submitChanges = async () => {
+                for (const item of Object.values(pendingCart)) {
+                    for (let i = 0; i < item.quantity; i++) {
+                        await fetch('/api/cart/update', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) },
+                            body: JSON.stringify({ restaurant_id: RESTAURANT_ID, table_token: tableToken, item_id: item.id, action: 'add' })
+                        });
+                    }
+                }
+                setPendingCart({}); setIsChangeModalOpen(false); refreshCart(); setCreatedOrder({ id: "UPDATED" });
+            };
+
+            const handleJoinTable = () => {
+                setShowJoinModal(false);
+                hasCheckedTableRef.current = true; // Явно запоминаем, что выбор сделан
+            };
+
+            const handleResetTable = async () => {
+                if(!confirm("Это удалит текущий заказ стола. Уверены?")) return;
+
+                // Сначала закрываем и блокируем, чтобы интервал не успел открыть снова
+                setShowJoinModal(false);
+                hasCheckedTableRef.current = true;
+
+                await fetch('/api/cart/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) },
+                    body: JSON.stringify({ restaurant_id: RESTAURANT_ID, table_token: tableToken })
+                });
+                refreshCart();
+            };
+            const cancelOrder = async () => {
+                if (!orderId) return;
+                try {
+                    await fetch('/api/orders/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Guest-Token': getGuestToken() }, body: JSON.stringify({ order_id: orderId }) });
+                    alert("Заказ отменен."); refreshCart();
+                } catch (e) { alert("Ошибка сети"); }
+            };
+
+            const acceptRec = async (item, isHome = false) => {
+                await addToCart(item);
+                if(isHome) {
+                     setHomeRecommendations(prev => {
+                        if (!prev) return null;
+                        const newItems = prev.items_data.filter(i => i.id !== item.id);
+                        return newItems.length ? { ...prev, items_data: newItems } : null;
+                    });
+                } else {
+                    setRecommendation(prev => {
+                        if (!prev) return null;
+                        const newItems = prev.items_data.filter(i => i.id !== item.id);
+                        return newItems.length ? { ...prev, items_data: newItems } : null;
+                    });
+                }
+            };
+
+            const closeModal = () => { setIsModalOpen(false); setCreatedOrder(null); setIsRecModalOpen(false); refreshCart(); };
+            const skipRec = () => { setIsRecModalOpen(false); setIsModalOpen(true); };
+
+            const totalServer = useMemo(() => Object.values(cart).reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
+            const totalPending = useMemo(() => Object.values(pendingCart).reduce((sum, item) => sum + item.price * item.quantity, 0), [pendingCart]);
+            const totalQty = useMemo(() => Object.values(cart).reduce((s,i)=>s+i.quantity,0) + Object.values(pendingCart).reduce((s,i)=>s+i.quantity,0), [cart, pendingCart]);
+
+            return (
+                <div className="min-h-screen">
+                    {!guestName && <NameEntryModal onSave={(name) => { localStorage.setItem('fs_guest_name', name); setGuestName(name); }} />}
+
+                    {/* Передаем cartStatus в модалку */}
+                    {guestName && showJoinModal && (
+                        <JoinOrNewModal
+                            ownerName={ownerName}
+                            status={cartStatus}
+                            onJoin={handleJoinTable}
+                            onReset={handleResetTable}
+                        />
+                    )}
+
+                    <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-20">
+                        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+                            <div className="flex flex-col">
+                                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-none">{RESTAURANT_NAME}</h1>
+                                {/* Отображение номера стола */}
+                                {tableToken && (
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-wider">
+                                        <i className="fa-solid fa-location-dot mr-1"></i>Стол {tableToken}
+                                    </span>
+                                )}
+                            </div>
+                            {guestName && <div className="text-xs font-bold bg-slate-100 px-3 py-1.5 rounded-full text-slate-500">👋 {guestName}</div>}
+                        </div>
+                    </header>
+
+                    <div className="container mx-auto p-4 md:p-8 max-w-7xl">
+                        <Slider items={sliderItems} />
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                            {/* MENU COLUMN */}
+                            <div className="lg:col-span-8">
+                                {/* AI RECOMMENDATIONS BLOCK */}
+                                {homeRecommendations && homeRecommendations.items_data.length > 0 && (
+                                    <div className="animate-fade-in-up mb-10">
+                                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-3xl p-6 border border-amber-100/50 shadow-sm relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-orange-200 rounded-full opacity-20 blur-xl"></div>
+                                            <div className="flex items-center gap-3 mb-5 relative z-10">
+                                                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-amber-500 shadow-md shadow-amber-500/10">
+                                                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                                                </div>
+                                                <h3 className="font-bold text-slate-800 text-lg leading-tight">{homeRecommendations.message}</h3>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
+                                                {homeRecommendations.items_data.map(item => (
+                                                    <div key={'hr_'+item.id} className="bg-white p-3 rounded-2xl flex gap-4 items-center shadow-sm border border-slate-50 hover:shadow-md transition cursor-pointer" onClick={() => acceptRec(item, true)}>
+                                                        <img src={item.image_url} className="w-16 h-16 rounded-xl object-cover bg-slate-50" />
+                                                        <div className="flex-1 min-w-0">
+                                                            <h4 className="font-bold text-slate-800 text-sm truncate">{item.name}</h4>
+                                                            <p className="text-amber-600 font-bold text-xs mt-1">{formatPrice(item.price)} ₸</p>
+                                                        </div>
+                                                        <button className="w-9 h-9 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center hover:bg-green-500 hover:text-white transition shadow-sm"><i className="fa-solid fa-plus text-xs"></i></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* CATEGORIES */}
+                                <div className="flex flex-wrap gap-2 mb-8 sticky top-[72px] bg-[#f8fafc] pt-2 pb-4 z-10">
+                                    {categories.map(category => (
+                                        <button key={category} onClick={() => setActiveCategory(category)}
+                                            className={`px-5 py-2.5 text-sm font-bold rounded-full transition-all duration-300 border ${activeCategory === category ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/20' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'}`}>
+                                            {category}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* GRID */}
+                                {isLoading ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                        {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20 lg:pb-0">
+                                        {filteredMenu.map(item => (
+                                            <div key={item.id} className="animate-fade-in-up">
+                                                <MenuItemCard
+                                                    item={item}
+                                                    totalQty={(cart[item.id]?.quantity || 0) + (pendingCart[item.id]?.quantity || 0)}
+                                                    onAdd={() => addToCart(item)}
+                                                    onRemove={() => removeFromCart(item.id, (pendingCart[item.id]?.quantity || 0) > 0)}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* DESKTOP CART COLUMN */}
+                            <div className="hidden lg:block lg:col-span-4 sticky top-24 h-[calc(100vh-8rem)]">
+                                <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 p-6 h-full border border-slate-100 flex flex-col">
+                                    <CartContent
+                                        serverItems={Object.values(cart)} pendingItems={Object.values(pendingCart)}
+                                        totalServer={totalServer} totalPending={totalPending}
+                                        statusKey={cartStatus} statusName={cartStatusName}
+                                        onAdd={addToCart} onRemove={removeFromCart} onCheckout={handleCheckoutClick} onCancelOrder={cancelOrder}
+                                        ownerName={ownerName} isOwner={isOwner} isCheckoutLoading={isCheckoutLoading}
+                                        isMobile={false}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* MOBILE STICKY CART BAR */}
+                    <div className={`lg:hidden fixed bottom-0 left-0 right-0 z-30 transition-transform duration-300 ${totalQty > 0 || Object.keys(cart).length > 0 ? 'translate-y-0' : 'translate-y-full'}`}>
+                        <div onClick={() => setIsMobileCartOpen(true)} className="bg-slate-900 text-white p-4 m-4 rounded-2xl shadow-2xl shadow-slate-900/40 flex justify-between items-center cursor-pointer active:scale-[0.98] transition-transform">
+                             <div className="flex items-center gap-3">
+                                <div className="bg-white/20 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm backdrop-blur-sm border border-white/10">{totalQty}</div>
+                                <span className="font-bold text-lg">Мой заказ</span>
+                             </div>
+                             <div className="flex items-center gap-3">
+                                <span className="font-extrabold text-lg">{formatPrice(totalServer + totalPending)} ₸</span>
+                                <i className="fa-solid fa-chevron-up text-sm text-slate-400"></i>
+                             </div>
+                        </div>
+                    </div>
+
+                    {/* MOBILE CART SHEET (MODAL) */}
+                    {isMobileCartOpen && (
+                        <div className="fixed inset-0 z-50 lg:hidden">
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsMobileCartOpen(false)}></div>
+                            <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[2rem] max-h-[90vh] flex flex-col animate-slide-up shadow-2xl">
+                                <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mt-3 mb-1 shrink-0"></div>
+                                <div className="p-6 overflow-hidden flex flex-col h-full">
+                                     <CartContent
+                                        serverItems={Object.values(cart)} pendingItems={Object.values(pendingCart)}
+                                        totalServer={totalServer} totalPending={totalPending}
+                                        statusKey={cartStatus} statusName={cartStatusName}
+                                        onAdd={addToCart} onRemove={removeFromCart} onCheckout={handleCheckoutClick} onCancelOrder={cancelOrder}
+                                        ownerName={ownerName} isOwner={isOwner} isCheckoutLoading={isCheckoutLoading}
+                                        isMobile={true}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* OTHER WIDGETS & MODALS */}
+                    <ChatWidget
+                        restaurantId={RESTAURANT_ID}
+                        tableNumber={tableToken}
+                        orderId={orderId}
+                        onCartUpdate={refreshCart}
+                        menu={menu}
+                        onAddToCart={addToCart}
+                        cart={cart}  // <--- Передаем объект корзины
+                        cartTotal={totalServer + totalPending} // <--- Передаем сумму
+                    />
+                    <WaiterCallButton restaurantId={RESTAURANT_ID} tableToken={tableToken} />
+                    {isRecModalOpen && recommendation && (
+                        <Modal onClose={skipRec} type="bottom">
+                            <div className="flex flex-col max-h-[80vh]">
+                                <h3 className="text-xl font-bold mb-4 text-center">Отлично дополнит заказ</h3>
+                                <p className="text-sm text-slate-500 mb-4 text-center bg-amber-50 py-2 rounded-lg border border-amber-100">{recommendation.message}</p>
+                                <div className="flex-1 overflow-y-auto space-y-3 mb-6 pr-1 custom-scrollbar">
+                                    {recommendation.items_data.map(item => (
+                                        <div key={item.id} className="flex justify-between items-center p-2 rounded-xl border border-slate-100">
+                                            <div className="flex items-center gap-3">
+                                                <img src={item.image_url} className="w-12 h-12 rounded-lg object-cover" />
+                                                <div>
+                                                    <p className="font-bold text-sm text-slate-800">{item.name}</p>
+                                                    <p className="text-xs text-slate-500">{formatPrice(item.price)} ₸</p>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => acceptRec(item)} className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-bold hover:bg-green-100 transition">Добавить</button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button onClick={skipRec} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold">Перейти к оплате</button>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {isModalOpen && <OrderModal onConfirm={placeOrder} onClose={closeModal} createdOrder={createdOrder} />}
+                    {isChangeModalOpen && <ChangesReviewModal serverTotal={totalServer} pendingItems={Object.values(pendingCart)} pendingTotal={totalPending} onConfirm={submitChanges} onCancel={() => setIsChangeModalOpen(false)} />}
+
+                    {showScanner && (
+                        <QRScannerModal
+                            onClose={() => setShowScanner(false)}
+                            onScanSuccess={handleQRScan}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    {% endraw %}
+    </script>
+</body>
+</html>
