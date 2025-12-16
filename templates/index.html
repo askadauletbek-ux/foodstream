@@ -669,9 +669,8 @@ function ChatWidget({ restaurantId, tableNumber, orderId, onCartUpdate, menu, on
             const fetchHistory = async () => {
                 if (!orderId) return;
                 try {
-const res = await fetch(`/api/cart?restaurant_id=${RESTAURANT_ID}&table_token=${tableToken}&_t=${Date.now()}`, {
-    headers: { 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) }
-});                    const data = await res.json();
+// Возвращаем правильный адрес /api/chat/history
+const res = await fetch(`/api/chat/history?restaurant_id=${restaurantId}&table_token=${tableNumber}&_t=${Date.now()}`);              const data = await res.json();
 
                     const msgs = data.messages.map(m => {
                         let content = m.content;
