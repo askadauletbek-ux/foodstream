@@ -1,5 +1,4 @@
-import eventlet
-eventlet.monkey_patch()
+
 import os
 import logging
 import logging.config
@@ -95,7 +94,7 @@ app.register_blueprint(ai_bp)
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 
 # Инициализация сокетов (async_mode='eventlet' обязателен для продакшена)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev_secret_key_change_in_prod_12345")
 
 # --- SECURITY CONFIG ---
