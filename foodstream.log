@@ -8,3 +8,5 @@
 [2025-12-15 20:27:04,793] WARNING in _internal:  * Debugger is active!
 [2025-12-15 20:35:36,973] WARNING in _internal:  * Debugger is active!
 [2025-12-15 23:33:18,013] WARNING in __init__: WebSocket transport not available. Install gevent-websocket for improved performance.
+[2025-12-16 10:17:42,304] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2025-12-16 10:21:02,014] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.

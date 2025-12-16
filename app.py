@@ -343,7 +343,7 @@ def get_cart_state():
 
 
 @app.route("/api/cart/update", methods=['POST'])
-@check_rate_limit(limit=10, window=60)
+@check_rate_limit(limit=100, window=60)
 def update_cart_item():
     data = request.json
     rest_id = int(data.get('restaurant_id'))
@@ -414,26 +414,46 @@ def update_cart_item():
 
             audit_detail += f" (New Qty: {current_qty + 1})"
 
+
         elif action == 'remove':
+
             existing = db.query(OrderItem).filter_by(order_id=cart.id, menu_item_id=item_id).first()
+
             if existing:
+
                 if existing.quantity > 1:
+
                     existing.quantity -= 1
+
                     audit_detail += f" (New Qty: {existing.quantity})"
+
                 else:
+
                     db.delete(existing)
+
                     audit_detail += " (Deleted)"
+
             else:
+
                 return jsonify({"error": "Item not in cart"}), 404
 
-                # 4. ФИНАЛИЗАЦИЯ ТРАНЗАКЦИИ
-                db.flush()
-                recalculate_order_total(db, cart)
-                log_audit(db, rest_id, 'cart_update', audit_detail, 'guest', guest_token, cart.id)
-                db.commit()
+            # <--- ВНИМАНИЕ: ЭТОТ БЛОК ДОЛЖЕН БЫТЬ СДВИНУТ ВЛЕВО (на уровень if/elif)
 
-                # [SOCKETIO] Уведомляем всех гостей за этим столом
-                socketio.emit('cart_updated', {'total': cart.total_price}, room=table_token)
+            # 4. ФИНАЛИЗАЦИЯ ТРАНЗАКЦИИ
+
+        db.flush()
+
+        recalculate_order_total(db, cart)
+
+        log_audit(db, rest_id, 'cart_update', audit_detail, 'guest', guest_token, cart.id)
+
+        db.commit()
+
+        # [SOCKETIO] Уведомляем всех гостей за этим столом
+
+        socketio.emit('cart_updated', {'total': cart.total_price}, room=table_token)
+
+        # <--- КОНЕЦ ИСПРАВЛЕНИЯ
 
         return jsonify({"success": True, "total": cart.total_price})
 
@@ -1318,4 +1338,4 @@ if __name__ == "__main__":
     socketio.start_background_task(background_scheduler)
 
     # ВАЖНО: debug=False для продакшена, используем socketio.run
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)

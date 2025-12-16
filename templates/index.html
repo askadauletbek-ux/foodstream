@@ -669,8 +669,9 @@ function ChatWidget({ restaurantId, tableNumber, orderId, onCartUpdate, menu, on
             const fetchHistory = async () => {
                 if (!orderId) return;
                 try {
-                    const res = await fetch(`/api/chat/history?restaurant_id=${restaurantId}&table_token=${tableNumber}`);
-                    const data = await res.json();
+const res = await fetch(`/api/cart?restaurant_id=${RESTAURANT_ID}&table_token=${tableToken}&_t=${Date.now()}`, {
+    headers: { 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) }
+});                    const data = await res.json();
 
                     const msgs = data.messages.map(m => {
                         let content = m.content;
@@ -984,26 +985,39 @@ function ChatWidget({ restaurantId, tableNumber, orderId, onCartUpdate, menu, on
             const categories = useMemo(() => ['Все', ...new Set(menu.map(item => item.category))], [menu]);
             const filteredMenu = useMemo(() => activeCategory === 'Все' ? menu : menu.filter(item => item.category === activeCategory), [menu, activeCategory]);
 
-            const refreshCart = () => {
+           const refreshCart = async () => {
                 if (!tableToken || !guestName) return;
-                fetch(`/api/cart?restaurant_id=${RESTAURANT_ID}&table_token=${tableToken}`, {
-                    headers: { 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) }
-                })
-                    .then(res => res.json())
-                    .then(data => {
-                        setCart(data.items || {});
-                        setCartStatus(data.status_key);
-                        setCartStatusName(data.status);
-                        setOwnerName(data.owner_name);
-                        setIsOwner(data.is_owner);
-                        setOrderId(data.order_id);
-
-                        // Используем Ref.current — он всегда актуален
-                        if (!hasCheckedTableRef.current && data.status_key && !data.is_owner) {
-                            setShowJoinModal(true);
-                            hasCheckedTableRef.current = true; // Блокируем повторное открытие
-                        }
+                try {
+                    // ДОБАВЛЕНО: &_t=${Date.now()} чтобы запретить кеширование
+                    const res = await fetch(`/api/cart?restaurant_id=${RESTAURANT_ID}&table_token=${tableToken}&_t=${Date.now()}`, {
+                        headers: { 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) }
                     });
+
+                    if (!res.ok) {
+                        console.warn("Ошибка обновления корзины:", res.status);
+                        if (res.status === 404) {
+                            localStorage.removeItem('foodstream_table_token');
+                            setTableToken(null);
+                            setShowScanner(true);
+                        }
+                        return;
+                    }
+
+                    const data = await res.json();
+                    setCart(data.items || {});
+                    setCartStatus(data.status_key);
+                    setCartStatusName(data.status);
+                    setOwnerName(data.owner_name);
+                    setIsOwner(data.is_owner);
+                    setOrderId(data.order_id);
+
+                    if (!hasCheckedTableRef.current && data.status_key && !data.is_owner) {
+                        setShowJoinModal(true);
+                        hasCheckedTableRef.current = true;
+                    }
+                } catch (e) {
+                    console.error("Ошибка refreshCart:", e);
+                }
             };
             useEffect(() => {
                 if(tableToken) {
@@ -1026,21 +1040,56 @@ function ChatWidget({ restaurantId, tableNumber, orderId, onCartUpdate, menu, on
                 }
             }, [tableToken]);
 
-            // Cart Actions
             const addToCart = async (item) => {
+                console.log("Клик по товару:", item.name); // Лог в консоль браузера (F12)
+
                 if(!tableToken) {
+                    console.log("Нет токена стола, открываю сканер");
                     setShowScanner(true);
                     return;
                 }
+
                 const isDraft = !cartStatus || cartStatus === 'BASKET_ASSEMBLY';
+
                 if (isDraft) {
-                    await fetch('/api/cart/update', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Guest-Token': getGuestToken(), 'Guest-Name': encodeURIComponent(guestName) },
-                        body: JSON.stringify({ restaurant_id: RESTAURANT_ID, table_token: tableToken, item_id: item.id, action: 'add' })
-                    });
-                    refreshCart();
+                    try {
+                        const res = await fetch('/api/cart/update', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Guest-Token': getGuestToken(),
+                                'Guest-Name': encodeURIComponent(guestName)
+                            },
+                            body: JSON.stringify({
+                                restaurant_id: RESTAURANT_ID,
+                                table_token: tableToken,
+                                item_id: item.id,
+                                action: 'add'
+                            })
+                        });
+
+                        const data = await res.json();
+
+                        if (!res.ok) {
+                            console.error("Ошибка сервера:", data);
+                            alert("Ошибка: " + (data.error || "Неизвестная ошибка"));
+
+                            // Если токен стола протух или неверен — сбрасываем его
+                            if (res.status === 404 && (data.error === "Invalid table token" || data.error === "Table error")) {
+                                localStorage.removeItem('foodstream_table_token');
+                                setTableToken(null);
+                                setTimeout(() => setShowScanner(true), 500);
+                            }
+                            return;
+                        }
+
+                        refreshCart();
+                    } catch (e) {
+                        console.error("Ошибка сети:", e);
+                        alert("Не удалось связаться с сервером. Проверьте интернет.");
+                    }
                 } else {
+                    // Логика дозаказа (если основной заказ уже отправлен)
                     setPendingCart(prev => {
                         const existing = prev[item.id];
                         return { ...prev, [item.id]: { ...item, quantity: (existing ? existing.quantity : 0) + 1 } };
