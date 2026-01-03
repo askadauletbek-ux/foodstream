@@ -871,6 +871,15 @@ return 'bg-blue-50 text-blue-800 border-blue-200';
             const [tables, setTables] = useState([]); // Состояние для мониторинга
             const menuLink = `${window.location.origin}/r/${RESTAURANT_ID}`;
 
+            const handleCashPayment = async (orderId, itemIds = null) => {
+                if(!confirm(itemIds ? "Отметить выбранные позиции как оплаченные наличными?" : "Оплатить весь стол наличными?")) return;
+                const res = await fetch('/api/admin/orders/pay_cash', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ order_id: orderId, item_ids: itemIds })
+                });
+                if (res.ok) fetchTables();
+            };
             const fetchTables = async () => {
                 const res = await fetch('/api/admin/tables/status');
                 if (res.ok) setTables(await res.json());
@@ -981,17 +990,36 @@ return 'bg-blue-50 text-blue-800 border-blue-200';
                         <h3 className="text-xl font-bold mb-4"><i className="fa-solid fa-desktop mr-2 text-indigo-500"></i>Мониторинг столов</h3>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             {tables.map(table => (
-                                <div key={table.id} className={`p-4 rounded-xl border text-center transition ${table.active ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
-                                    <div className="font-bold text-slate-800">Стол №{table.number}</div>
-                                    <div className="text-[10px] uppercase font-bold mt-1 text-slate-500">{table.status}</div>
-                                    {table.created_at && <div className="text-[10px] bg-slate-800 text-white inline-block px-1 rounded mt-1">{table.created_at}</div>}
-                                    <div className="mt-3">
-                                        {table.active ? (
-                                            <button onClick={() => resetTable(table.id)} className="text-[10px] bg-red-500 text-white px-3 py-1 rounded-lg font-bold hover:bg-red-600 transition">СБРОСИТЬ</button>
-                                        ) : (
-                                            <span className="text-[10px] text-slate-400 font-bold">СВОБОДЕН</span>
-                                        )}
+                                <div key={table.id} className={`p-4 rounded-xl border transition ${table.active ? 'bg-white border-amber-300 shadow-md' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="font-bold text-lg">Стол №{table.number}</div>
+                                        {table.active && <div className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">{table.status}</div>}
                                     </div>
+
+                                    {table.active ? (
+                                        <>
+                                            <div className="space-y-1 my-3 max-h-40 overflow-y-auto border-y py-2">
+                                                {table.items.map(item => (
+                                                    <div key={item.id} className="flex justify-between text-[11px] items-center">
+                                                        <span className={item.is_paid ? 'line-through text-slate-400' : 'text-slate-700'}>
+                                                            <b className="text-blue-600">{item.added_by}:</b> {item.name}
+                                                        </span>
+                                                        {!item.is_paid && (
+                                                            <button onClick={() => handleCashPayment(table.order_id, [item.id])} className="text-green-600 hover:text-green-800">
+                                                                <i className="fa-solid fa-money-bill-1"></i>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleCashPayment(table.order_id)} className="flex-1 text-[10px] bg-green-600 text-white py-1.5 rounded-lg font-bold hover:bg-green-700">ОПЛАТИТЬ ВСЁ (НАЛ)</button>
+                                                <button onClick={() => resetTable(table.id)} className="text-[10px] bg-slate-200 text-slate-600 px-2 rounded-lg hover:bg-red-100 hover:text-red-600">СБРОС</button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-center py-4 text-slate-400 text-sm italic">Свободен</div>
+                                    )}
                                 </div>
                             ))}
                         </div>

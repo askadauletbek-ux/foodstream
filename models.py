@@ -189,11 +189,12 @@ class Order(Base):
 
 class OrderItem(Base):
     __tablename__ = "order_items"
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     order_id = Column(Integer, ForeignKey("orders.id"))
     menu_item_id = Column(Integer, ForeignKey("menu_items.id"))
     quantity = Column(Integer, default=1)
-    added_by = Column(String, nullable=True) # Имя того, кто добавил позицию
+    added_by = Column(String, nullable=True)
+    is_paid = Column(Boolean, default=False) # Добавлено: флаг оплаты позиции
 
     order = relationship("Order", back_populates="items")
     menu_item = relationship("MenuItem")

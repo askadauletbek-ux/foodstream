@@ -1124,15 +1124,54 @@ def get_table_statuses():
                 Order.status.notin_([OrderStatus.CANCELED, OrderStatus.SUCCESSFULLY_DELIVERED])
             ).first()
 
+            # Получаем все позиции заказа с именами гостей
+            items_detail = []
+            if active_order:
+                for oi in active_order.items:
+                    items_detail.append({
+                        "id": oi.id,
+                        "name": oi.menu_item.name,
+                        "quantity": oi.quantity,
+                        "price": oi.menu_item.price,
+                        "added_by": oi.added_by or "Гость",
+                        "is_paid": oi.is_paid
+                    })
+
             result.append({
                 "id": t.id,
                 "number": t.number,
                 "active": active_order is not None,
+                "order_id": active_order.id if active_order else None,
                 "status": active_order.status.value if active_order else "Свободен",
-                "created_at": active_order.created_at.strftime("%H:%M") if active_order else None
+                "created_at": active_order.created_at.strftime("%H:%M") if active_order else None,
+                "items": items_detail  # Добавлено: состав корзины
             })
         return jsonify(result)
 
+
+@app.route('/api/admin/orders/pay_cash', methods=['POST'])
+@login_required
+def pay_order_cash():
+    if current_user.role != 'admin': return 403
+    data = request.json
+    order_id = data.get('order_id')
+    item_ids = data.get('item_ids')  # Если пусто - оплата всего стола
+
+    with SessionLocal() as db:
+        order = db.query(Order).get(order_id)
+        if not order: return 404
+
+        if item_ids:
+            # Частичная оплата конкретных позиций
+            db.query(OrderItem).filter(OrderItem.id.in_(item_ids)).update({"is_paid": True}, synchronize_session=False)
+        else:
+            # Оплата всего стола
+            db.query(OrderItem).filter(OrderItem.order_id == order_id).update({"is_paid": True},
+                                                                              synchronize_session=False)
+            order.status = OrderStatus.SUCCESSFULLY_DELIVERED
+
+        db.commit()
+        return jsonify({"success": True})
 
 @app.route('/api/admin/tables/<int:table_id>/reset', methods=['POST'])
 @login_required
