@@ -1110,6 +1110,50 @@ def manage_slider(slide_id=None):
         return 404
 
 
+@app.route('/api/admin/tables/status', methods=['GET'])
+@login_required
+def get_table_statuses():
+    if current_user.role != 'admin': return 403
+    with SessionLocal() as db:
+        tables = db.query(models.Table).filter_by(restaurant_id=current_user.restaurant_id).order_by(
+            models.Table.number).all()
+        result = []
+        for t in tables:
+            active_order = db.query(Order).filter(
+                Order.table_id == t.id,
+                Order.status.notin_([OrderStatus.CANCELED, OrderStatus.SUCCESSFULLY_DELIVERED])
+            ).first()
+
+            result.append({
+                "id": t.id,
+                "number": t.number,
+                "active": active_order is not None,
+                "status": active_order.status.value if active_order else "Свободен",
+                "created_at": active_order.created_at.strftime("%H:%M") if active_order else None
+            })
+        return jsonify(result)
+
+
+@app.route('/api/admin/tables/<int:table_id>/reset', methods=['POST'])
+@login_required
+def reset_table_admin(table_id):
+    if current_user.role != 'admin': return 403
+    with SessionLocal() as db:
+        table = db.query(models.Table).get(table_id)
+        if not table or table.restaurant_id != current_user.restaurant_id:
+            return jsonify({"error": "Table not found"}), 404
+        active_order = db.query(Order).filter(
+            Order.table_id == table.id,
+            Order.status.notin_([OrderStatus.CANCELED, OrderStatus.SUCCESSFULLY_DELIVERED])
+        ).first()
+        if active_order:
+            active_order.status = OrderStatus.CANCELED
+            log_audit(db, current_user.restaurant_id, 'admin_table_reset',
+                      f"Table {table.number} reset by admin", 'admin', current_user.id, active_order.id)
+            db.commit()
+        return jsonify({"success": True})
+
+
 @app.route('/api/settings', methods=['POST'])
 @login_required
 def update_settings():
