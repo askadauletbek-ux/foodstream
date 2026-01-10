@@ -30,7 +30,7 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        // Данные с сервера
+        // Данные приходят от Flask (render_template)
         const RESTAURANT_ID = {{ restaurant_id }};
         const WAITER_NAME = "{{ waiter_name }}";
 
@@ -71,48 +71,67 @@
 
         function DashboardView() {
             const [orders, setOrders] = useState([]);
+            const [signals, setSignals] = useState([]);
             const [loading, setLoading] = useState(true);
 
-            const fetchOrders = async () => {
-                try {
-                    const res = await fetch('/api/waiter/tables');
-                    const data = await res.json();
-                    setOrders(data.orders);
-                    setLoading(false);
-                } catch (e) { console.error(e); }
-            };
-
-            const [signals, setSignals] = useState([]);
+            // Звуковое уведомление
             const audio = useMemo(() => new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'), []);
 
             const fetchOrders = async () => {
                 try {
                     const res = await fetch('/api/waiter/tables');
+                    if (!res.ok) throw new Error("Ошибка сети");
                     const data = await res.json();
-                    setOrders(data.orders);
+
+                    setOrders(data.orders || []);
                     setSignals(data.signals || []);
 
+                    // Если есть новые сигналы вызова - играем звук
                     if (data.signals && data.signals.length > 0) {
-                        // Простой хак для автовоспроизведения (требует взаимодействия со страницей хотя бы раз)
-                        audio.play().catch(e => console.log("Audio blocked"));
+                        audio.play().catch(e => console.log("Audio requires interaction"));
                     }
                     setLoading(false);
-                } catch (e) { console.error(e); }
+                } catch (e) {
+                    console.error(e);
+                    setLoading(false);
+                }
             };
 
-            const resolveSignal = async (id) => {
-                await fetch('/api/signal/resolve', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ signal_id: id })
-                });
+            // Полный цикл обновлений (Polling) каждые 5 секунд
+            useEffect(() => {
                 fetchOrders();
+                const interval = setInterval(fetchOrders, 5000);
+                return () => clearInterval(interval);
+            }, []);
+
+            const resolveSignal = async (id) => {
+                try {
+                    await fetch('/api/signal/resolve', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ signal_id: id })
+                    });
+                    // Немедленно обновляем данные
+                    setSignals(prev => prev.filter(s => s.id !== id));
+                } catch(e) { console.error(e); }
+            };
+
+            const updateStatus = async (orderId, newStatus) => {
+                if(!confirm(`Сменить статус на "${newStatus}"?`)) return;
+                try {
+                    await fetch(`/api/orders/${orderId}/status`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: newStatus })
+                    });
+                    fetchOrders();
+                } catch(e) { alert("Ошибка обновления статуса"); }
             };
 
             if (loading) return <div className="text-center py-10 text-slate-500"><i className="fa-solid fa-circle-notch fa-spin text-2xl mb-2"></i><br/>Загрузка...</div>;
 
             return (
                 <div className="overflow-y-auto h-full pb-20">
-                    {/* Вызовы */}
+                    {/* Вызовы (Signals) */}
                     {signals.length > 0 && (
                         <div className="mb-6 grid grid-cols-2 gap-4 animate-pulse">
                             {signals.map(s => (
@@ -129,8 +148,10 @@
                             ))}
                         </div>
                     )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {orders.length === 0 && <div className="col-span-3 text-center py-20 text-slate-600">Активных заказов нет</div>}
+
                         {orders.map(order => (
                             <div key={order.id} className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition">
@@ -141,43 +162,44 @@
                                         {order.table}
                                     </div>
                                     <div className="text-right">
-                                        <span className={`inline-block px-2 py-1 rounded text-xs font-bold shadow-sm ${order.status === 'Ожидает подтверждения' ? 'bg-amber-500 text-white animate-pulse' : 'bg-green-600 text-white'}`}>
+                                        <span className={`inline-block px-2 py-1 rounded text-xs font-bold shadow-sm ${order.status === 'Ожидает подтверждения' || order.status === 'Ожидает оплаты' ? 'bg-amber-500 text-white animate-pulse' : 'bg-green-600 text-white'}`}>
                                            {order.status}
                                         </span>
                                         <p className="text-xs text-slate-400 mt-1"><i className="fa-regular fa-clock mr-1"></i>{order.minutes} мин.</p>
                                     </div>
                                 </div>
-                                <div className="space-y-1 mb-4 relative z-10 max-h-32 overflow-y-auto scrollbar-hide">
+
+                                <div className="space-y-1 mb-4 relative z-10 max-h-40 overflow-y-auto scrollbar-hide">
                                     {order.items.map((item, i) => (
                                         <div key={i} className="text-sm text-slate-300 border-b border-slate-700/50 last:border-0 py-1 flex justify-between">
-                                            <span>{item.split(' x')[0]}</span>
-                                            <span className="font-bold text-slate-500">x{item.split(' x')[1]}</span>
+                                            <span>{item}</span>
                                         </div>
                                     ))}
                                 </div>
-                                <div className="border-t border-slate-700 pt-3 relative z-10">
-    <div className="flex justify-between items-center mb-3">
-        <span className="text-slate-400 text-sm">Итого:</span>
-        <span className="text-xl font-bold text-white">{order.total} ₸</span>
-    </div>
 
-    {order.status === 'Ожидает подтверждения' && (
-        <button
-            onClick={async () => {
-                if(!confirm(`Подтвердить заказ стола ${order.table} на кухню?`)) return;
-                await fetch(`/api/orders/${order.id}/status`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: 'Готовится' })
-                });
-                fetchOrders();
-            }}
-            className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg transition shadow-lg flex items-center justify-center gap-2"
-        >
-            <i className="fa-solid fa-fire-burner"></i> На кухню
-        </button>
-    )}
-</div>
+                                <div className="border-t border-slate-700 pt-3 relative z-10">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="text-slate-400 text-sm">Итого:</span>
+                                        <span className="text-xl font-bold text-white">{order.total} ₸</span>
+                                    </div>
+
+                                    {/* Кнопки действий в зависимости от статуса */}
+                                    {order.status === 'Ожидает подтверждения' && (
+                                        <button onClick={() => updateStatus(order.id, 'Готовится')} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg transition shadow-lg flex items-center justify-center gap-2">
+                                            <i className="fa-solid fa-fire-burner"></i> На кухню
+                                        </button>
+                                    )}
+                                    {order.status === 'Готовится' && (
+                                        <button onClick={() => updateStatus(order.id, 'Готов к выдаче')} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition shadow-lg flex items-center justify-center gap-2">
+                                            <i className="fa-solid fa-bell-concierge"></i> Готов к выдаче
+                                        </button>
+                                    )}
+                                     {order.status === 'Готов к выдаче' && (
+                                        <button onClick={() => updateStatus(order.id, 'Выполнен')} className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-lg transition shadow-lg flex items-center justify-center gap-2">
+                                            <i className="fa-solid fa-check"></i> Завершить
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -238,14 +260,14 @@
         function POSView({ onOrderCreated }) {
             const [menu, setMenu] = useState([]);
             const [cart, setCart] = useState({});
-            const [table, setTable] = useState("1"); // По умолчанию строковое значение для Select
+            const [table, setTable] = useState("1");
             const [categories, setCategories] = useState([]);
             const [activeCat, setActiveCat] = useState('Все');
             const [mobileTab, setMobileTab] = useState('menu');
             const [showConfirm, setShowConfirm] = useState(false);
             const [isSending, setIsSending] = useState(false);
 
-            // Генерируем список столиков (например, 20 штук)
+            // Генерируем список столиков (20 штук)
             const tableList = Array.from({length: 20}, (_, i) => i + 1);
 
             useEffect(() => {
@@ -255,7 +277,8 @@
                         setMenu(data);
                         const cats = ['Все', ...new Set(data.map(i => i.category))];
                         setCategories(cats);
-                    });
+                    })
+                    .catch(e => console.error("Menu fetch error", e));
             }, []);
 
             const addToCart = (item) => {
@@ -296,9 +319,11 @@
 
                     if (res.ok) {
                         setShowConfirm(false);
-                        onOrderCreated();
+                        setCart({}); // Очистка корзины
+                        onOrderCreated(); // Возврат на дашборд
                     } else {
-                        alert("Ошибка создания заказа");
+                        const err = await res.json();
+                        alert("Ошибка создания заказа: " + (err.error || "Неизвестно"));
                         setIsSending(false);
                     }
                 } catch (e) {
@@ -311,7 +336,6 @@
 
             return (
                 <div className="flex flex-col h-full relative">
-                    {/* Переключатель вкладок (Мобильный) */}
                     <div className="md:hidden flex mb-2 bg-slate-700 p-1 rounded-lg shrink-0">
                         <button onClick={() => setMobileTab('menu')} className={`flex-1 py-2 text-sm font-bold rounded-md transition duration-200 ${mobileTab === 'menu' ? 'bg-amber-500 text-white shadow' : 'text-slate-400'}`}>
                             Меню
@@ -344,7 +368,6 @@
                                                 <p className="text-amber-400 font-bold text-sm">{item.price} ₸</p>
                                             </div>
 
-                                            {/* Интерактивная кнопка добавления */}
                                             {qty === 0 ? (
                                                 <button onClick={() => addToCart(item)} className="mt-auto w-full bg-slate-800 py-2 rounded text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-600 transition active:scale-95">
                                                     <i className="fa-solid fa-plus mr-1"></i>Добавить
@@ -366,7 +389,6 @@
                         <div className={`w-full md:w-80 lg:w-96 bg-white text-slate-900 rounded-xl flex flex-col overflow-hidden shadow-2xl ${mobileTab === 'menu' ? 'hidden md:flex' : 'flex'}`}>
                             <div className="p-4 bg-slate-50 border-b border-slate-200 shrink-0">
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Столик</label>
-                                {/* Выбор столика через Dropdown */}
                                 <div className="relative">
                                     <select value={table} onChange={e => setTable(e.target.value)}
                                         className="w-full text-lg font-bold bg-white border border-slate-300 rounded-lg p-3 pr-8 appearance-none focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">

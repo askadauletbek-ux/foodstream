@@ -10,3 +10,880 @@
 [2025-12-15 23:33:18,013] WARNING in __init__: WebSocket transport not available. Install gevent-websocket for improved performance.
 [2025-12-16 10:17:42,304] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
 [2025-12-16 10:21:02,014] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 00:49:49,939] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 00:50:12,491] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 00:51:52,421] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 00:52:01,190] ERROR in app: Exception on /api/orders/ [GET]
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: order_items_1.is_paid
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\app.py", line 822, in get_admin_orders
+    Order.id.desc()).limit(50).all()
+                               ~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ~~~~~~~~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+        params,
+        ^^^^^^^
+        execution_options={"_sa_orm_load_options": self.load_options},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2365, in execute
+    return self._execute_internal(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+    ...<4 lines>...
+        _add_event=_add_event,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...<4 lines>...
+        conn,
+        ^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+        statement, params or {}, execution_options=execution_options
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<8 lines>...
+        cache_hit=cache_hit,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: order_items_1.is_paid
+[SQL: SELECT anon_1.orders_id AS anon_1_orders_id, anon_1.orders_restaurant_id AS anon_1_orders_restaurant_id, anon_1.orders_table_id AS anon_1_orders_table_id, anon_1.orders_table_number AS anon_1_orders_table_number, anon_1.orders_phone_number AS anon_1_orders_phone_number, anon_1.orders_owner_token AS anon_1_orders_owner_token, anon_1.orders_owner_name AS anon_1_orders_owner_name, anon_1.orders_telegram_chat_id AS anon_1_orders_telegram_chat_id, anon_1.orders_telegram_username AS anon_1_orders_telegram_username, anon_1.orders_is_bot_active AS anon_1_orders_is_bot_active, anon_1.orders_reminder_sent AS anon_1_orders_reminder_sent, anon_1.orders_last_activity AS anon_1_orders_last_activity, anon_1.orders_status AS anon_1_orders_status, anon_1.orders_total_price AS anon_1_orders_total_price, anon_1.orders_created_at AS anon_1_orders_created_at, anon_1.orders_updated_at AS anon_1_orders_updated_at, anon_1.orders_waiter_id AS anon_1_orders_waiter_id, users_1.id AS users_1_id, users_1.username AS users_1_username, users_1.password_hash AS users_1_password_hash, users_1.role AS users_1_role, users_1.is_active AS users_1_is_active, users_1.restaurant_id AS users_1_restaurant_id, menu_items_1.id AS menu_items_1_id, menu_items_1.name AS menu_items_1_name, menu_items_1.description AS menu_items_1_description, menu_items_1.price AS menu_items_1_price, menu_items_1.image_url AS menu_items_1_image_url, menu_items_1.sort_order AS menu_items_1_sort_order, menu_items_1.is_active AS menu_items_1_is_active, menu_items_1.stock AS menu_items_1_stock, menu_items_1.restaurant_id AS menu_items_1_restaurant_id, order_items_1.id AS order_items_1_id, order_items_1.order_id AS order_items_1_order_id, order_items_1.menu_item_id AS order_items_1_menu_item_id, order_items_1.quantity AS order_items_1_quantity, order_items_1.added_by AS order_items_1_added_by, order_items_1.is_paid AS order_items_1_is_paid 
+FROM (SELECT orders.id AS orders_id, orders.restaurant_id AS orders_restaurant_id, orders.table_id AS orders_table_id, orders.table_number AS orders_table_number, orders.phone_number AS orders_phone_number, orders.owner_token AS orders_owner_token, orders.owner_name AS orders_owner_name, orders.telegram_chat_id AS orders_telegram_chat_id, orders.telegram_username AS orders_telegram_username, orders.is_bot_active AS orders_is_bot_active, orders.reminder_sent AS orders_reminder_sent, orders.last_activity AS orders_last_activity, orders.status AS orders_status, orders.total_price AS orders_total_price, orders.created_at AS orders_created_at, orders.updated_at AS orders_updated_at, orders.waiter_id AS orders_waiter_id 
+FROM orders 
+WHERE orders.restaurant_id = ? ORDER BY orders.id DESC
+ LIMIT ? OFFSET ?) AS anon_1 LEFT OUTER JOIN users AS users_1 ON users_1.id = anon_1.orders_waiter_id LEFT OUTER JOIN order_items AS order_items_1 ON anon_1.orders_id = order_items_1.order_id LEFT OUTER JOIN menu_items AS menu_items_1 ON menu_items_1.id = order_items_1.menu_item_id ORDER BY anon_1.orders_id DESC]
+[parameters: (1, 50, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[2026-01-04 00:56:28,625] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 00:56:32,495] ERROR in app: Exception on /api/orders/ [GET]
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: order_items_1.is_paid
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\app.py", line 822, in get_admin_orders
+    Order.id.desc()).limit(50).all()
+                               ~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ~~~~~~~~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+        params,
+        ^^^^^^^
+        execution_options={"_sa_orm_load_options": self.load_options},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2365, in execute
+    return self._execute_internal(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+    ...<4 lines>...
+        _add_event=_add_event,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...<4 lines>...
+        conn,
+        ^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+        statement, params or {}, execution_options=execution_options
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<8 lines>...
+        cache_hit=cache_hit,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: order_items_1.is_paid
+[SQL: SELECT anon_1.orders_id AS anon_1_orders_id, anon_1.orders_restaurant_id AS anon_1_orders_restaurant_id, anon_1.orders_table_id AS anon_1_orders_table_id, anon_1.orders_table_number AS anon_1_orders_table_number, anon_1.orders_phone_number AS anon_1_orders_phone_number, anon_1.orders_owner_token AS anon_1_orders_owner_token, anon_1.orders_owner_name AS anon_1_orders_owner_name, anon_1.orders_telegram_chat_id AS anon_1_orders_telegram_chat_id, anon_1.orders_telegram_username AS anon_1_orders_telegram_username, anon_1.orders_is_bot_active AS anon_1_orders_is_bot_active, anon_1.orders_reminder_sent AS anon_1_orders_reminder_sent, anon_1.orders_last_activity AS anon_1_orders_last_activity, anon_1.orders_status AS anon_1_orders_status, anon_1.orders_total_price AS anon_1_orders_total_price, anon_1.orders_created_at AS anon_1_orders_created_at, anon_1.orders_updated_at AS anon_1_orders_updated_at, anon_1.orders_waiter_id AS anon_1_orders_waiter_id, users_1.id AS users_1_id, users_1.username AS users_1_username, users_1.password_hash AS users_1_password_hash, users_1.role AS users_1_role, users_1.is_active AS users_1_is_active, users_1.restaurant_id AS users_1_restaurant_id, menu_items_1.id AS menu_items_1_id, menu_items_1.name AS menu_items_1_name, menu_items_1.description AS menu_items_1_description, menu_items_1.price AS menu_items_1_price, menu_items_1.image_url AS menu_items_1_image_url, menu_items_1.sort_order AS menu_items_1_sort_order, menu_items_1.is_active AS menu_items_1_is_active, menu_items_1.stock AS menu_items_1_stock, menu_items_1.restaurant_id AS menu_items_1_restaurant_id, order_items_1.id AS order_items_1_id, order_items_1.order_id AS order_items_1_order_id, order_items_1.menu_item_id AS order_items_1_menu_item_id, order_items_1.quantity AS order_items_1_quantity, order_items_1.added_by AS order_items_1_added_by, order_items_1.is_paid AS order_items_1_is_paid 
+FROM (SELECT orders.id AS orders_id, orders.restaurant_id AS orders_restaurant_id, orders.table_id AS orders_table_id, orders.table_number AS orders_table_number, orders.phone_number AS orders_phone_number, orders.owner_token AS orders_owner_token, orders.owner_name AS orders_owner_name, orders.telegram_chat_id AS orders_telegram_chat_id, orders.telegram_username AS orders_telegram_username, orders.is_bot_active AS orders_is_bot_active, orders.reminder_sent AS orders_reminder_sent, orders.last_activity AS orders_last_activity, orders.status AS orders_status, orders.total_price AS orders_total_price, orders.created_at AS orders_created_at, orders.updated_at AS orders_updated_at, orders.waiter_id AS orders_waiter_id 
+FROM orders 
+WHERE orders.restaurant_id = ? ORDER BY orders.id DESC
+ LIMIT ? OFFSET ?) AS anon_1 LEFT OUTER JOIN users AS users_1 ON users_1.id = anon_1.orders_waiter_id LEFT OUTER JOIN order_items AS order_items_1 ON anon_1.orders_id = order_items_1.order_id LEFT OUTER JOIN menu_items AS menu_items_1 ON menu_items_1.id = order_items_1.menu_item_id ORDER BY anon_1.orders_id DESC]
+[parameters: (1, 50, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[2026-01-04 00:57:07,309] ERROR in app: Exception on /api/orders/ [GET]
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: order_items_1.is_paid
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\app.py", line 822, in get_admin_orders
+    Order.id.desc()).limit(50).all()
+                               ~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ~~~~~~~~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+        params,
+        ^^^^^^^
+        execution_options={"_sa_orm_load_options": self.load_options},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2365, in execute
+    return self._execute_internal(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+    ...<4 lines>...
+        _add_event=_add_event,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...<4 lines>...
+        conn,
+        ^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+        statement, params or {}, execution_options=execution_options
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<8 lines>...
+        cache_hit=cache_hit,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: order_items_1.is_paid
+[SQL: SELECT anon_1.orders_id AS anon_1_orders_id, anon_1.orders_restaurant_id AS anon_1_orders_restaurant_id, anon_1.orders_table_id AS anon_1_orders_table_id, anon_1.orders_table_number AS anon_1_orders_table_number, anon_1.orders_phone_number AS anon_1_orders_phone_number, anon_1.orders_owner_token AS anon_1_orders_owner_token, anon_1.orders_owner_name AS anon_1_orders_owner_name, anon_1.orders_telegram_chat_id AS anon_1_orders_telegram_chat_id, anon_1.orders_telegram_username AS anon_1_orders_telegram_username, anon_1.orders_is_bot_active AS anon_1_orders_is_bot_active, anon_1.orders_reminder_sent AS anon_1_orders_reminder_sent, anon_1.orders_last_activity AS anon_1_orders_last_activity, anon_1.orders_status AS anon_1_orders_status, anon_1.orders_total_price AS anon_1_orders_total_price, anon_1.orders_created_at AS anon_1_orders_created_at, anon_1.orders_updated_at AS anon_1_orders_updated_at, anon_1.orders_waiter_id AS anon_1_orders_waiter_id, users_1.id AS users_1_id, users_1.username AS users_1_username, users_1.password_hash AS users_1_password_hash, users_1.role AS users_1_role, users_1.is_active AS users_1_is_active, users_1.restaurant_id AS users_1_restaurant_id, menu_items_1.id AS menu_items_1_id, menu_items_1.name AS menu_items_1_name, menu_items_1.description AS menu_items_1_description, menu_items_1.price AS menu_items_1_price, menu_items_1.image_url AS menu_items_1_image_url, menu_items_1.sort_order AS menu_items_1_sort_order, menu_items_1.is_active AS menu_items_1_is_active, menu_items_1.stock AS menu_items_1_stock, menu_items_1.restaurant_id AS menu_items_1_restaurant_id, order_items_1.id AS order_items_1_id, order_items_1.order_id AS order_items_1_order_id, order_items_1.menu_item_id AS order_items_1_menu_item_id, order_items_1.quantity AS order_items_1_quantity, order_items_1.added_by AS order_items_1_added_by, order_items_1.is_paid AS order_items_1_is_paid 
+FROM (SELECT orders.id AS orders_id, orders.restaurant_id AS orders_restaurant_id, orders.table_id AS orders_table_id, orders.table_number AS orders_table_number, orders.phone_number AS orders_phone_number, orders.owner_token AS orders_owner_token, orders.owner_name AS orders_owner_name, orders.telegram_chat_id AS orders_telegram_chat_id, orders.telegram_username AS orders_telegram_username, orders.is_bot_active AS orders_is_bot_active, orders.reminder_sent AS orders_reminder_sent, orders.last_activity AS orders_last_activity, orders.status AS orders_status, orders.total_price AS orders_total_price, orders.created_at AS orders_created_at, orders.updated_at AS orders_updated_at, orders.waiter_id AS orders_waiter_id 
+FROM orders 
+WHERE orders.restaurant_id = ? ORDER BY orders.id DESC
+ LIMIT ? OFFSET ?) AS anon_1 LEFT OUTER JOIN users AS users_1 ON users_1.id = anon_1.orders_waiter_id LEFT OUTER JOIN order_items AS order_items_1 ON anon_1.orders_id = order_items_1.order_id LEFT OUTER JOIN menu_items AS menu_items_1 ON menu_items_1.id = order_items_1.menu_item_id ORDER BY anon_1.orders_id DESC]
+[parameters: (1, 50, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[2026-01-04 00:57:35,661] ERROR in app: Exception on /api/orders/ [GET]
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: order_items_1.is_paid
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\app.py", line 822, in get_admin_orders
+    Order.id.desc()).limit(50).all()
+                               ~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ~~~~~~~~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+        params,
+        ^^^^^^^
+        execution_options={"_sa_orm_load_options": self.load_options},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2365, in execute
+    return self._execute_internal(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+    ...<4 lines>...
+        _add_event=_add_event,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...<4 lines>...
+        conn,
+        ^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+        statement, params or {}, execution_options=execution_options
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<8 lines>...
+        cache_hit=cache_hit,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: order_items_1.is_paid
+[SQL: SELECT anon_1.orders_id AS anon_1_orders_id, anon_1.orders_restaurant_id AS anon_1_orders_restaurant_id, anon_1.orders_table_id AS anon_1_orders_table_id, anon_1.orders_table_number AS anon_1_orders_table_number, anon_1.orders_phone_number AS anon_1_orders_phone_number, anon_1.orders_owner_token AS anon_1_orders_owner_token, anon_1.orders_owner_name AS anon_1_orders_owner_name, anon_1.orders_telegram_chat_id AS anon_1_orders_telegram_chat_id, anon_1.orders_telegram_username AS anon_1_orders_telegram_username, anon_1.orders_is_bot_active AS anon_1_orders_is_bot_active, anon_1.orders_reminder_sent AS anon_1_orders_reminder_sent, anon_1.orders_last_activity AS anon_1_orders_last_activity, anon_1.orders_status AS anon_1_orders_status, anon_1.orders_total_price AS anon_1_orders_total_price, anon_1.orders_created_at AS anon_1_orders_created_at, anon_1.orders_updated_at AS anon_1_orders_updated_at, anon_1.orders_waiter_id AS anon_1_orders_waiter_id, users_1.id AS users_1_id, users_1.username AS users_1_username, users_1.password_hash AS users_1_password_hash, users_1.role AS users_1_role, users_1.is_active AS users_1_is_active, users_1.restaurant_id AS users_1_restaurant_id, menu_items_1.id AS menu_items_1_id, menu_items_1.name AS menu_items_1_name, menu_items_1.description AS menu_items_1_description, menu_items_1.price AS menu_items_1_price, menu_items_1.image_url AS menu_items_1_image_url, menu_items_1.sort_order AS menu_items_1_sort_order, menu_items_1.is_active AS menu_items_1_is_active, menu_items_1.stock AS menu_items_1_stock, menu_items_1.restaurant_id AS menu_items_1_restaurant_id, order_items_1.id AS order_items_1_id, order_items_1.order_id AS order_items_1_order_id, order_items_1.menu_item_id AS order_items_1_menu_item_id, order_items_1.quantity AS order_items_1_quantity, order_items_1.added_by AS order_items_1_added_by, order_items_1.is_paid AS order_items_1_is_paid 
+FROM (SELECT orders.id AS orders_id, orders.restaurant_id AS orders_restaurant_id, orders.table_id AS orders_table_id, orders.table_number AS orders_table_number, orders.phone_number AS orders_phone_number, orders.owner_token AS orders_owner_token, orders.owner_name AS orders_owner_name, orders.telegram_chat_id AS orders_telegram_chat_id, orders.telegram_username AS orders_telegram_username, orders.is_bot_active AS orders_is_bot_active, orders.reminder_sent AS orders_reminder_sent, orders.last_activity AS orders_last_activity, orders.status AS orders_status, orders.total_price AS orders_total_price, orders.created_at AS orders_created_at, orders.updated_at AS orders_updated_at, orders.waiter_id AS orders_waiter_id 
+FROM orders 
+WHERE orders.restaurant_id = ? ORDER BY orders.id DESC
+ LIMIT ? OFFSET ?) AS anon_1 LEFT OUTER JOIN users AS users_1 ON users_1.id = anon_1.orders_waiter_id LEFT OUTER JOIN order_items AS order_items_1 ON anon_1.orders_id = order_items_1.order_id LEFT OUTER JOIN menu_items AS menu_items_1 ON menu_items_1.id = order_items_1.menu_item_id ORDER BY anon_1.orders_id DESC]
+[parameters: (1, 50, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[2026-01-04 00:59:01,783] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 00:59:06,861] ERROR in app: Exception on /api/orders/ [GET]
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: order_items_1.is_paid
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\app.py", line 822, in get_admin_orders
+    Order.id.desc()).limit(50).all()
+                               ~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ~~~~~~~~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+        params,
+        ^^^^^^^
+        execution_options={"_sa_orm_load_options": self.load_options},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2365, in execute
+    return self._execute_internal(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+    ...<4 lines>...
+        _add_event=_add_event,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...<4 lines>...
+        conn,
+        ^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+        statement, params or {}, execution_options=execution_options
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<8 lines>...
+        cache_hit=cache_hit,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: order_items_1.is_paid
+[SQL: SELECT anon_1.orders_id AS anon_1_orders_id, anon_1.orders_restaurant_id AS anon_1_orders_restaurant_id, anon_1.orders_table_id AS anon_1_orders_table_id, anon_1.orders_table_number AS anon_1_orders_table_number, anon_1.orders_phone_number AS anon_1_orders_phone_number, anon_1.orders_owner_token AS anon_1_orders_owner_token, anon_1.orders_owner_name AS anon_1_orders_owner_name, anon_1.orders_telegram_chat_id AS anon_1_orders_telegram_chat_id, anon_1.orders_telegram_username AS anon_1_orders_telegram_username, anon_1.orders_is_bot_active AS anon_1_orders_is_bot_active, anon_1.orders_reminder_sent AS anon_1_orders_reminder_sent, anon_1.orders_last_activity AS anon_1_orders_last_activity, anon_1.orders_status AS anon_1_orders_status, anon_1.orders_total_price AS anon_1_orders_total_price, anon_1.orders_created_at AS anon_1_orders_created_at, anon_1.orders_updated_at AS anon_1_orders_updated_at, anon_1.orders_waiter_id AS anon_1_orders_waiter_id, users_1.id AS users_1_id, users_1.username AS users_1_username, users_1.password_hash AS users_1_password_hash, users_1.role AS users_1_role, users_1.is_active AS users_1_is_active, users_1.restaurant_id AS users_1_restaurant_id, menu_items_1.id AS menu_items_1_id, menu_items_1.name AS menu_items_1_name, menu_items_1.description AS menu_items_1_description, menu_items_1.price AS menu_items_1_price, menu_items_1.image_url AS menu_items_1_image_url, menu_items_1.sort_order AS menu_items_1_sort_order, menu_items_1.is_active AS menu_items_1_is_active, menu_items_1.stock AS menu_items_1_stock, menu_items_1.restaurant_id AS menu_items_1_restaurant_id, order_items_1.id AS order_items_1_id, order_items_1.order_id AS order_items_1_order_id, order_items_1.menu_item_id AS order_items_1_menu_item_id, order_items_1.quantity AS order_items_1_quantity, order_items_1.added_by AS order_items_1_added_by, order_items_1.is_paid AS order_items_1_is_paid 
+FROM (SELECT orders.id AS orders_id, orders.restaurant_id AS orders_restaurant_id, orders.table_id AS orders_table_id, orders.table_number AS orders_table_number, orders.phone_number AS orders_phone_number, orders.owner_token AS orders_owner_token, orders.owner_name AS orders_owner_name, orders.telegram_chat_id AS orders_telegram_chat_id, orders.telegram_username AS orders_telegram_username, orders.is_bot_active AS orders_is_bot_active, orders.reminder_sent AS orders_reminder_sent, orders.last_activity AS orders_last_activity, orders.status AS orders_status, orders.total_price AS orders_total_price, orders.created_at AS orders_created_at, orders.updated_at AS orders_updated_at, orders.waiter_id AS orders_waiter_id 
+FROM orders 
+WHERE orders.restaurant_id = ? ORDER BY orders.id DESC
+ LIMIT ? OFFSET ?) AS anon_1 LEFT OUTER JOIN users AS users_1 ON users_1.id = anon_1.orders_waiter_id LEFT OUTER JOIN order_items AS order_items_1 ON anon_1.orders_id = order_items_1.order_id LEFT OUTER JOIN menu_items AS menu_items_1 ON menu_items_1.id = order_items_1.menu_item_id ORDER BY anon_1.orders_id DESC]
+[parameters: (1, 50, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[2026-01-04 00:59:42,415] ERROR in app: Exception on /api/orders/ [GET]
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: order_items_1.is_paid
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\app.py", line 822, in get_admin_orders
+    Order.id.desc()).limit(50).all()
+                               ~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ~~~~~~~~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+        params,
+        ^^^^^^^
+        execution_options={"_sa_orm_load_options": self.load_options},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2365, in execute
+    return self._execute_internal(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+    ...<4 lines>...
+        _add_event=_add_event,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...<4 lines>...
+        conn,
+        ^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+        statement, params or {}, execution_options=execution_options
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<8 lines>...
+        cache_hit=cache_hit,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: order_items_1.is_paid
+[SQL: SELECT anon_1.orders_id AS anon_1_orders_id, anon_1.orders_restaurant_id AS anon_1_orders_restaurant_id, anon_1.orders_table_id AS anon_1_orders_table_id, anon_1.orders_table_number AS anon_1_orders_table_number, anon_1.orders_phone_number AS anon_1_orders_phone_number, anon_1.orders_owner_token AS anon_1_orders_owner_token, anon_1.orders_owner_name AS anon_1_orders_owner_name, anon_1.orders_telegram_chat_id AS anon_1_orders_telegram_chat_id, anon_1.orders_telegram_username AS anon_1_orders_telegram_username, anon_1.orders_is_bot_active AS anon_1_orders_is_bot_active, anon_1.orders_reminder_sent AS anon_1_orders_reminder_sent, anon_1.orders_last_activity AS anon_1_orders_last_activity, anon_1.orders_status AS anon_1_orders_status, anon_1.orders_total_price AS anon_1_orders_total_price, anon_1.orders_created_at AS anon_1_orders_created_at, anon_1.orders_updated_at AS anon_1_orders_updated_at, anon_1.orders_waiter_id AS anon_1_orders_waiter_id, users_1.id AS users_1_id, users_1.username AS users_1_username, users_1.password_hash AS users_1_password_hash, users_1.role AS users_1_role, users_1.is_active AS users_1_is_active, users_1.restaurant_id AS users_1_restaurant_id, menu_items_1.id AS menu_items_1_id, menu_items_1.name AS menu_items_1_name, menu_items_1.description AS menu_items_1_description, menu_items_1.price AS menu_items_1_price, menu_items_1.image_url AS menu_items_1_image_url, menu_items_1.sort_order AS menu_items_1_sort_order, menu_items_1.is_active AS menu_items_1_is_active, menu_items_1.stock AS menu_items_1_stock, menu_items_1.restaurant_id AS menu_items_1_restaurant_id, order_items_1.id AS order_items_1_id, order_items_1.order_id AS order_items_1_order_id, order_items_1.menu_item_id AS order_items_1_menu_item_id, order_items_1.quantity AS order_items_1_quantity, order_items_1.added_by AS order_items_1_added_by, order_items_1.is_paid AS order_items_1_is_paid 
+FROM (SELECT orders.id AS orders_id, orders.restaurant_id AS orders_restaurant_id, orders.table_id AS orders_table_id, orders.table_number AS orders_table_number, orders.phone_number AS orders_phone_number, orders.owner_token AS orders_owner_token, orders.owner_name AS orders_owner_name, orders.telegram_chat_id AS orders_telegram_chat_id, orders.telegram_username AS orders_telegram_username, orders.is_bot_active AS orders_is_bot_active, orders.reminder_sent AS orders_reminder_sent, orders.last_activity AS orders_last_activity, orders.status AS orders_status, orders.total_price AS orders_total_price, orders.created_at AS orders_created_at, orders.updated_at AS orders_updated_at, orders.waiter_id AS orders_waiter_id 
+FROM orders 
+WHERE orders.restaurant_id = ? ORDER BY orders.id DESC
+ LIMIT ? OFFSET ?) AS anon_1 LEFT OUTER JOIN users AS users_1 ON users_1.id = anon_1.orders_waiter_id LEFT OUTER JOIN order_items AS order_items_1 ON anon_1.orders_id = order_items_1.order_id LEFT OUTER JOIN menu_items AS menu_items_1 ON menu_items_1.id = order_items_1.menu_item_id ORDER BY anon_1.orders_id DESC]
+[parameters: (1, 50, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[2026-01-04 01:01:56,997] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:02:00,236] ERROR in app: Exception on /api/orders/ [GET]
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: order_items_1.is_paid
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\daule\PycharmProjects\foodstream\app.py", line 824, in get_admin_orders
+    Order.id.desc()).limit(50).all()
+                               ~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ~~~~~~~~~~^^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+        params,
+        ^^^^^^^
+        execution_options={"_sa_orm_load_options": self.load_options},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2365, in execute
+    return self._execute_internal(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+    ...<4 lines>...
+        _add_event=_add_event,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...<4 lines>...
+        conn,
+        ^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+        statement, params or {}, execution_options=execution_options
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<8 lines>...
+        cache_hit=cache_hit,
+    )
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\daule\PycharmProjects\foodstream\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: order_items_1.is_paid
+[SQL: SELECT anon_1.orders_id AS anon_1_orders_id, anon_1.orders_restaurant_id AS anon_1_orders_restaurant_id, anon_1.orders_table_id AS anon_1_orders_table_id, anon_1.orders_table_number AS anon_1_orders_table_number, anon_1.orders_phone_number AS anon_1_orders_phone_number, anon_1.orders_owner_token AS anon_1_orders_owner_token, anon_1.orders_owner_name AS anon_1_orders_owner_name, anon_1.orders_telegram_chat_id AS anon_1_orders_telegram_chat_id, anon_1.orders_telegram_username AS anon_1_orders_telegram_username, anon_1.orders_is_bot_active AS anon_1_orders_is_bot_active, anon_1.orders_reminder_sent AS anon_1_orders_reminder_sent, anon_1.orders_last_activity AS anon_1_orders_last_activity, anon_1.orders_status AS anon_1_orders_status, anon_1.orders_total_price AS anon_1_orders_total_price, anon_1.orders_created_at AS anon_1_orders_created_at, anon_1.orders_updated_at AS anon_1_orders_updated_at, anon_1.orders_waiter_id AS anon_1_orders_waiter_id, users_1.id AS users_1_id, users_1.username AS users_1_username, users_1.password_hash AS users_1_password_hash, users_1.role AS users_1_role, users_1.is_active AS users_1_is_active, users_1.restaurant_id AS users_1_restaurant_id, menu_items_1.id AS menu_items_1_id, menu_items_1.name AS menu_items_1_name, menu_items_1.description AS menu_items_1_description, menu_items_1.price AS menu_items_1_price, menu_items_1.image_url AS menu_items_1_image_url, menu_items_1.sort_order AS menu_items_1_sort_order, menu_items_1.is_active AS menu_items_1_is_active, menu_items_1.stock AS menu_items_1_stock, menu_items_1.restaurant_id AS menu_items_1_restaurant_id, order_items_1.id AS order_items_1_id, order_items_1.order_id AS order_items_1_order_id, order_items_1.menu_item_id AS order_items_1_menu_item_id, order_items_1.quantity AS order_items_1_quantity, order_items_1.added_by AS order_items_1_added_by, order_items_1.is_paid AS order_items_1_is_paid 
+FROM (SELECT orders.id AS orders_id, orders.restaurant_id AS orders_restaurant_id, orders.table_id AS orders_table_id, orders.table_number AS orders_table_number, orders.phone_number AS orders_phone_number, orders.owner_token AS orders_owner_token, orders.owner_name AS orders_owner_name, orders.telegram_chat_id AS orders_telegram_chat_id, orders.telegram_username AS orders_telegram_username, orders.is_bot_active AS orders_is_bot_active, orders.reminder_sent AS orders_reminder_sent, orders.last_activity AS orders_last_activity, orders.status AS orders_status, orders.total_price AS orders_total_price, orders.created_at AS orders_created_at, orders.updated_at AS orders_updated_at, orders.waiter_id AS orders_waiter_id 
+FROM orders 
+WHERE orders.restaurant_id = ? ORDER BY orders.id DESC
+ LIMIT ? OFFSET ?) AS anon_1 LEFT OUTER JOIN users AS users_1 ON users_1.id = anon_1.orders_waiter_id LEFT OUTER JOIN order_items AS order_items_1 ON anon_1.orders_id = order_items_1.order_id LEFT OUTER JOIN menu_items AS menu_items_1 ON menu_items_1.id = order_items_1.menu_item_id ORDER BY anon_1.orders_id DESC]
+[parameters: (1, 50, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[2026-01-04 01:07:40,727] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:13:58,623] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:14:34,140] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:17:04,115] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:21:54,863] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:25:33,461] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:32:41,154] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:38:13,037] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:41:31,902] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+[2026-01-04 01:47:44,959] WARNING in _internal: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.

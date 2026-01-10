@@ -91,7 +91,9 @@ logging.config.dictConfig(LOG_CONFIG)
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.register_blueprint(ai_bp)
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
+
+# Делаем путь абсолютным относительно файла app.py
+app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
 
 # Инициализация сокетов (async_mode='eventlet' обязателен для продакшена)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
@@ -317,15 +319,19 @@ def get_cart_state():
 
             # Лучше модифицировать объект, чтобы фронт мог отобразить "Вася, Петя"
 
-            items_data[item.menu_item_id] = {
-                "id": item.menu_item_id,
-                "name": item.menu_item.name,
-                "price": item.menu_item.price,
-                "quantity": item.quantity,
-                "image_url": item.menu_item.image_url,
-                "is_drink": is_drink,
-                "added_by": item.added_by  # Кто добавил/изменил последним
-            }
+            if item.menu_item_id in items_data:
+                # ИСПРАВЛЕНО: Суммируем количество, если блюдо уже есть в словаре
+                items_data[item.menu_item_id]["quantity"] += item.quantity
+            else:
+                items_data[item.menu_item_id] = {
+                    "id": item.menu_item_id,
+                    "name": item.menu_item.name,
+                    "price": item.menu_item.price,
+                    "quantity": item.quantity,
+                    "image_url": item.menu_item.image_url,
+                    "is_drink": is_drink,
+                    "added_by": item.added_by
+                }
 
         # Проверяем, является ли текущий юзер владельцем
         is_owner = (cart.owner_token == guest_token) if cart.owner_token else True
@@ -380,12 +386,13 @@ def update_cart_item():
         if status == OrderStatus.BASKET_ASSEMBLY:
             allow_modification = True
         elif status in [OrderStatus.IN_PROGRESS, OrderStatus.DELIVERY, OrderStatus.VERIFICATION,
-                        OrderStatus.REQUIRES_PAYMENT]:
+                            OrderStatus.REQUIRES_PAYMENT]:
             # Заказ уже в работе.
-            if action == 'add' and is_drink:
-                allow_modification = True  # Дозаказ напитков разрешен
+            # РАЗРЕШАЕМ дозаказ (action == 'add') любых позиций (и еды, и напитков)
+            if action == 'add':
+                allow_modification = True
             else:
-                allow_modification = False  # Еду не трогаем, удалять напитки нельзя
+                allow_modification = False  # Удаление всё еще запрещено (вдруг уже готовят)
         else:
             # Completed / Canceled
             allow_modification = False
@@ -397,8 +404,9 @@ def update_cart_item():
         audit_detail = f"{action.upper()} {menu_item.name}"
 
         if action == 'add':
-            # Проверка стока
-            existing = db.query(OrderItem).filter_by(order_id=cart.id, menu_item_id=item_id).first()
+            # ИСПРАВЛЕНО: Приводим ID к числу и ищем только НЕОПЛАЧЕННУЮ позицию
+            item_id_int = int(item_id)
+            existing = db.query(OrderItem).filter_by(order_id=cart.id, menu_item_id=item_id_int, is_paid=False).first()
             current_qty = existing.quantity if existing else 0
 
             if menu_item.stock is not None:
@@ -409,9 +417,12 @@ def update_cart_item():
                 existing.quantity += 1
                 existing.added_by = guest_name
             else:
-                db.add(OrderItem(order_id=cart.id, menu_item_id=item_id, quantity=1, added_by=guest_name))
+                # ИСПРАВЛЕНО: Используем append к коллекции, чтобы recalculate_order_total увидел новый товар сразу
+                new_item = OrderItem(menu_item_id=item_id_int, quantity=1, added_by=guest_name, is_paid=False)
+                cart.items.append(new_item)
 
             audit_detail += f" (New Qty: {current_qty + 1})"
+
 
 
         elif action == 'remove':
@@ -436,9 +447,7 @@ def update_cart_item():
 
                 return jsonify({"error": "Item not in cart"}), 404
 
-            # <--- ВНИМАНИЕ: ЭТОТ БЛОК ДОЛЖЕН БЫТЬ СДВИНУТ ВЛЕВО (на уровень if/elif)
-
-            # 4. ФИНАЛИЗАЦИЯ ТРАНЗАКЦИИ
+            # Блок вынесен на уровень выше (убран лишний отступ):
 
         db.flush()
 
@@ -448,13 +457,17 @@ def update_cart_item():
 
         db.commit()
 
-        # [SOCKETIO] Уведомляем всех гостей за этим столом
-
+        # Уведомляем клиента
         socketio.emit('cart_updated', {'total': cart.total_price}, room=table_token)
 
-        # <--- КОНЕЦ ИСПРАВЛЕНИЯ
+        # Уведомляем персонал (в общую комнату ресторана)
+        # Если заказ уже активен (не черновик), шлем шумный сигнал 'new_order', иначе - тихий 'cart_updated'
+        if cart.status != OrderStatus.BASKET_ASSEMBLY:
+            socketio.emit('new_order', {'order_id': cart.id, 'table': table_token}, room=f"rest_{rest_id}")
+        else:
+            socketio.emit('cart_updated', {'order_id': cart.id, 'table': table_token}, room=f"rest_{rest_id}")
 
-        return jsonify({"success": True, "total": cart.total_price})
+    return jsonify({"success": True, "total": cart.total_price})
 
 
 @app.route("/api/cart/reset", methods=['POST'])
@@ -543,6 +556,13 @@ def cancel_order_endpoint():
 
         order.status = OrderStatus.CANCELED
         db.commit()
+
+        # Уведомляем админ-панель об отмене заказа для проигрывания звука
+        socketio.emit('status_change', {
+            'order_id': order.id,
+            'status': order.status.value
+        }, room=f"rest_{order.restaurant_id}")
+
         return jsonify({"success": True})
 
 
@@ -644,9 +664,12 @@ def create_order_api():
 
             log_audit(db, restaurant_id, 'order_created', f"Total: {total}", 'guest', guest_token, order.id)
 
-        db.commit()
-        return jsonify({"id": order.id, "total_price": order.total_price, "status": order.status.value})
+            db.commit()
+            # Генерируем сигнал о ПЕРВИЧНОЙ отправке заказа (со звуком)
+            socketio.emit('new_order', {'order_id': order.id, 'table': table_token or table_number},
+                          room=f"rest_{restaurant_id}")
 
+            return jsonify({"id": order.id, "total_price": order.total_price, "status": order.status.value})
 
 # --- SERVICE SIGNALS ---
 
@@ -669,6 +692,8 @@ def call_waiter_signal():
         if not exists:
             db.add(ServiceSignal(restaurant_id=data['restaurant_id'], table_number=table_obj.number))
             db.commit()
+            # Моментальный сигнал официанту
+            socketio.emit('new_signal', {'table': table_obj.number}, room=f"rest_{data['restaurant_id']}")
     return jsonify({"status": "ok"})
 
 
@@ -855,6 +880,12 @@ def update_order_status(order_id):
                       current_user.role, current_user.id, order.id)
 
             db.commit()
+            # Уведомляем персонал
+            socketio.emit('status_change', {'order_id': order.id, 'status': order.status.value},
+                          room=f"rest_{current_user.restaurant_id}")
+            # Уведомляем клиента (если есть привязанный стол)
+            if order.table:
+                socketio.emit('status_change', {'status': order.status.value}, room=order.table.public_token)
             return jsonify({"success": True})
         else:
             return jsonify({"error": "Invalid status"}), 400
@@ -1058,6 +1089,9 @@ def manage_menu(item_id=None):
                 item.description = data.get('description', item.description)
                 item.sort_order = data.get('sort_order', item.sort_order)
                 item.is_active = data.get('is_active', item.is_active)
+                if 'image_url' in data:
+                    item.image_url = data['image_url']
+
                 if 'stock' in data: item.stock = data['stock']
 
                 if 'categories' in data:
@@ -1193,17 +1227,21 @@ def reset_table_admin(table_id):
         return jsonify({"success": True})
 
 
-@app.route('/api/settings', methods=['POST'])
+@app.route('/api/settings', methods=['GET', 'POST'])  # Добавлена поддержка GET
 @login_required
 def update_settings():
     if current_user.role != 'admin': return 403
-    data = request.json
 
     with SessionLocal() as db:
         rest = db.query(Restaurant).get(current_user.restaurant_id)
         if not rest: return 404
 
-        # Обновляем количество столов
+        # Если запрашиваем данные при загрузке
+        if request.method == 'GET':
+            return jsonify({"table_count": rest.table_count})
+
+        # Если сохраняем новые данные
+        data = request.json
         new_count = int(data.get('table_count', rest.table_count))
         rest.table_count = new_count
 
@@ -1298,10 +1336,10 @@ def waiter_api_tables():
 
             ai_hints = []
             try:
-                ai_hints = asyncio.run(assistant.analyze_tables_for_waiter(orders_info))
+                # Убрали asyncio.run, так как функция теперь синхронная
+                ai_hints = assistant.analyze_tables_for_waiter(orders_info)
             except Exception as e:
                 pass
-
             signals = db.query(ServiceSignal).filter(
                 ServiceSignal.restaurant_id == current_user.restaurant_id,
                 ServiceSignal.is_active == True
@@ -1337,12 +1375,13 @@ def recommend_endpoint():
                 "category": cat_str
             })
 
-        # Спрашиваем AI
-        try:
-            ai_data = asyncio.run(assistant.get_upsell_recommendations(cart, menu_items))
-        except Exception as e:
-            print(f"Rec Error: {e}")
-            return jsonify({"message": "", "items_data": []})
+            # Спрашиваем AI
+            try:
+                # Убрали asyncio.run, так как функция теперь синхронная
+                ai_data = assistant.get_upsell_recommendations(cart, menu_items)
+            except Exception as e:
+                print(f"Rec Error: {e}")
+                return jsonify({"message": "", "items_data": []})
 
         rec_ids = ai_data.get('products', [])
         message = ai_data.get('message', '')

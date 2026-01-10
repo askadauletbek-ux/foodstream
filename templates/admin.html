@@ -165,10 +165,11 @@ const ORDER_STATUSES = [ "Сбор корзины", "Отменен", "Ожид�
                         });
 
                         if (newOrderAlert) {
-                            playSound('new'); // Вызов функции
+                            // Звук только для действительно новых или переотправленных заказов
+                            playSound('new');
                             setNotification({ type: 'new', title: '🔔 Новый заказ!', msg: `Стол ${newOrderAlert.table_number}` });
                         } else if (updateOrderAlert) {
-                            playSound('update'); // Вызов функции
+                            // Звук удален для обычных изменений, чтобы не пищать при добавлении блюд в корзину
                             setNotification({ type: 'update', title: '📝 Заказ изменен!', msg: `Стол ${updateOrderAlert.table_number}` });
                         }
                         prevOrdersRef.current = newHashes;
@@ -190,11 +191,27 @@ const ORDER_STATUSES = [ "Сбор корзины", "Отменен", "Ожид�
                 socket.emit('join', { room: `rest_${RESTAURANT_ID}` });
 
                 socket.on('new_order', (data) => {
-                    playSound('new');
-                    fetchOrders(); // Загружаем список заново при новом заказе
+                    console.log("Socket: New order received");
+                    playSound('new'); // Звук при новом заказе или дозаказе в активный чек
+                    fetchOrders();
                 });
 
-                socket.on('status_change', () => {
+                socket.on('cart_updated', (data) => {
+                    console.log("Socket: Order modified");
+                    // Звук удален: просто обновляем список без сигнала, пока идет сбор корзины
+                    fetchOrders();
+                });
+
+                socket.on('status_change', (data) => {
+                    // Подаем звук, если статус изменился на "Отменен"
+                    if (data && data.status === 'Отменен') {
+                        playSound('new');
+                    }
+                    fetchOrders();
+                });
+
+                socket.on('new_signal', () => {
+                    playSound('new'); // Звук при вызове официанта
                     fetchOrders();
                 });
 
@@ -868,8 +885,18 @@ return 'bg-blue-50 text-blue-800 border-blue-200';
         function SettingsManager() {
             const [tableCount, setTableCount] = useState(10);
             const [isSaving, setIsSaving] = useState(false);
+            const [isEditing, setIsEditing] = useState(false); // Состояние редактирования
             const [tables, setTables] = useState([]); // Состояние для мониторинга
             const menuLink = `${window.location.origin}/r/${RESTAURANT_ID}`;
+
+            // Загрузка актуальных настроек из БД
+            const fetchSettings = async () => {
+                const res = await fetch('/api/settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    setTableCount(data.table_count);
+                }
+            };
 
             const handleCashPayment = async (orderId, itemIds = null) => {
                 if(!confirm(itemIds ? "Отметить выбранные позиции как оплаченные наличными?" : "Оплатить весь стол наличными?")) return;
@@ -897,6 +924,13 @@ return 'bg-blue-50 text-blue-800 border-blue-200';
                 if (res.ok) fetchTables();
             };
 
+            useEffect(() => {
+                fetchSettings(); // Загружаем настройки при монтировании
+                fetchTables();
+                const interval = setInterval(fetchTables, 10000);
+                return () => clearInterval(interval);
+            }, []);
+
             const handleSave = async () => {
                 setIsSaving(true);
                 try {
@@ -906,6 +940,7 @@ return 'bg-blue-50 text-blue-800 border-blue-200';
                         body: JSON.stringify({ table_count: tableCount })
                     });
                     alert('Настройки сохранены! Столики обновлены.');
+                    setIsEditing(false); // Выходим из режима редактирования
                     fetchTables();
                 } catch(e) {
                     alert('Ошибка сохранения');
@@ -942,16 +977,37 @@ return 'bg-blue-50 text-blue-800 border-blue-200';
                             </div>
 
                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                                <h3 className="text-xl font-bold mb-4">Столики</h3>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-xl font-bold">Столики</h3>
+                                    {!isEditing && (
+                                        <button onClick={() => setIsEditing(true)} className="text-slate-400 hover:text-amber-500 transition-colors">
+                                            <i className="fa-solid fa-pen"></i>
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="mb-4">
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Количество столиков</label>
-                                    <input type="number" min="1" max="100" value={tableCount} onChange={e => setTableCount(e.target.value)}
-                                           className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none" />
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="100"
+                                        value={tableCount}
+                                        onChange={e => setTableCount(e.target.value)}
+                                        disabled={!isEditing}
+                                        className={`w-full p-3 border rounded-xl outline-none transition-all ${isEditing ? 'border-amber-400 bg-white ring-2 ring-amber-500/10' : 'border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed'}`}
+                                    />
                                     <p className="text-xs text-slate-400 mt-2">При увеличении количества, новые QR-коды будут добавлены в PDF автоматически.</p>
                                 </div>
-                                <button onClick={handleSave} disabled={isSaving} className="w-full bg-slate-800 text-white font-bold py-3 px-6 rounded-xl hover:bg-slate-700 transition disabled:opacity-50">
-                                    {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
-                                </button>
+                                {isEditing && (
+                                    <div className="flex gap-2">
+                                        <button onClick={handleSave} disabled={isSaving} className="flex-1 bg-slate-800 text-white font-bold py-3 px-6 rounded-xl hover:bg-slate-700 transition disabled:opacity-50">
+                                            {isSaving ? 'Сохранение...' : 'Сохранить'}
+                                        </button>
+                                        <button onClick={() => setIsEditing(false)} className="px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition">
+                                            Отмена
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
